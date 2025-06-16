@@ -319,22 +319,22 @@
             
             3: {
                 name: "DASH + JUMP COMBO",
-                description: "Dash then jump to reach far platforms",
+                description: "Dash across the void, then jump!",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 650, y: 300, width: 40, height: 40 },
+                goal: { x: 650, y: 350, width: 40, height: 40 },
                 startingActions: { jumps: 2, dashes: 1, teleports: 0, wallbounces: 0 },
-                optimalMoves: 3,
+                optimalMoves: 2,
                 platforms: [
                     { x: 50, y: 550, width: 150, height: 20 },
-                    { x: 600, y: 340, width: 150, height: 20 }
+                    { x: 600, y: 390, width: 150, height: 20 }
                 ],
                 hazards: [],
                 vibes: [
-                    { x: 675, y: 310, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 675, y: 360, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    // Grid positioned to REQUIRE dash+jump combo (no platform under it)
-                    { type: 'horizontal', y: 450, start: 250, end: 550 }
+                    // LONGER grid positioned to go from start platform to goal area
+                    { type: 'horizontal', y: 470, start: 200, end: 580 }
                 ],
                 trees: [], walls: [], bgColor: '#2e1a1a'
             },
@@ -655,10 +655,11 @@
             
             if (actions.jumps <= 0) return;
             
-            // ENHANCED: Allow jumping if grounded OR recently dashed (coyote time)
+            // ENHANCED: Allow jumping if grounded OR recently dashed (coyote time) OR currently dashing
             const recentlyDashed = (now - lastDashTime) < 500; // Increased to 500ms for easier combos
+            const isDashing = player.state === 'dashing';
             
-            if (!player.grounded && !recentlyDashed) return;
+            if (!player.grounded && !recentlyDashed && !isDashing) return;
             
             lastJumpTime = now;
             actions.jumps--;
@@ -667,13 +668,13 @@
             player.vy = -12; // Constant jump force regardless of speed
             player.grounded = false;
             
-            // CRITICAL FIX: Allow jumping during dash! End dash state when jumping
+            // End dash state when jumping
             if (player.state === 'dashing') {
                 player.state = 'normal';
-                console.log("🚀 Jump during dash - combo move!");
+                console.log("🚀 Jump during dash - perfect combo!");
             }
             
-            if (recentlyDashed && !player.grounded) {
+            if (recentlyDashed && !player.grounded && !isDashing) {
                 console.log("🦘 Coyote jump after dash!");
             }
             
@@ -760,14 +761,13 @@
                 // Auto-snap to grid line (very forgiving)
                 if (dashDirection.line.type === 'horizontal') {
                     player.y = dashDirection.line.y;
-                    // Don't force grounded here - let physics handle it
                 } else {
                     player.x = dashDirection.line.x;
                 }
                 
-                // BALANCED dash speed - not too fast, not too slow
-                player.vx = dashDirection.x * 8; // Reduced from 15 to 8
-                player.vy = dashDirection.y * 8;
+                // INCREASED dash speed to cross entire grid
+                player.vx = dashDirection.x * 12; // Increased from 8 to 12
+                player.vy = dashDirection.y * 12;
                 player.state = 'dashing';
                 
                 for (let i = 0; i < 15; i++) {
@@ -785,7 +785,7 @@
                     if (player.state === 'dashing') {
                         player.state = 'normal'; 
                     }
-                }, 300); // FIXED: Longer dash duration for better combo timing
+                }, 500); // INCREASED: Much longer dash duration to cross entire grid
                 flashUI('dash-counter');
                 updateUI();
                 
@@ -1129,6 +1129,21 @@
                     }
                 }
             });
+            
+            // SPECIAL: If dashing on horizontal grid, treat as grounded for jumping
+            if (player.state === 'dashing') {
+                level.grids.forEach(grid => {
+                    if (grid.type === 'horizontal') {
+                        // Check if player is on this grid line
+                        if (Math.abs(player.y - grid.y) < 5 && 
+                            player.x >= grid.start - 20 && 
+                            player.x <= grid.end + 20) {
+                            player.grounded = true;
+                            player.vy = 0; // Stop vertical movement while on grid
+                        }
+                    }
+                });
+            }
             
             // Movement - Allow some control even during dash
             if (player.state !== 'dashing') {
@@ -1574,7 +1589,7 @@
                     if (currentLevel === 3) {
                         ctx.fillStyle = '#00ff00';
                         ctx.font = '8px Press Start 2P';
-                        ctx.fillText('DASH ACROSS, THEN SPACE!', instructionX, instructionY + 20);
+                        ctx.fillText('DASH TO END, SPACE WHILE PURPLE!', instructionX, instructionY + 20);
                     }
                     
                 } else {
@@ -1876,20 +1891,21 @@
             ctx.translate(player.x + player.size/2, player.y + player.size/2);
             ctx.scale(player.facing, 1);
             
-            // Show if player can jump (grounded or coyote time)
+            // Show if player can jump (grounded or coyote time or dashing)
             const now = Date.now();
             const recentlyDashed = (now - lastDashTime) < 500; // Updated to match jump function
-            const canJump = player.grounded || recentlyDashed;
+            const isDashing = player.state === 'dashing';
+            const canJump = player.grounded || recentlyDashed || isDashing;
             
             // Player glow effect - different colors based on state
             let glowColor = '#ffffff';
-            if (player.state === 'dashing') glowColor = '#ff00ff';
+            if (player.state === 'dashing') glowColor = '#ff00ff'; // Purple when dashing
             else if (recentlyDashed && !player.grounded) glowColor = '#ffff00'; // Yellow if can coyote jump
             else if (player.grounded) glowColor = '#00ff00'; // Green if grounded
             
             ctx.fillStyle = glowColor;
             ctx.shadowColor = glowColor;
-            ctx.shadowBlur = canJump ? 12 : 8;
+            ctx.shadowBlur = canJump ? 15 : 8; // Bigger glow when can jump
             ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
             ctx.shadowBlur = 0;
             
