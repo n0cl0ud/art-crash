@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT+DIR=DASH • E=WARP • R=RESET
+            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT=AUTO-DASH • E=WARP • R=RESET
         </div>
         
         <div class="speed-control">
@@ -321,7 +321,7 @@
                 description: "Learn to dash on grids",
                 spawn: { x: 100, y: 500 },
                 goal: { x: 650, y: 300, width: 40, height: 40 },
-                startingActions: { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 },
+                startingActions: { jumps: 3, dashes: 1, teleports: 0, wallbounces: 0 },
                 optimalMoves: 3,
                 platforms: [
                     { x: 50, y: 550, width: 150, height: 20 },
@@ -330,11 +330,11 @@
                 ],
                 hazards: [],
                 vibes: [
-                    { x: 350, y: 420, type: 'dash', collected: false, size: 12, pulse: 0 },
-                    { x: 525, y: 375, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 525, y: 310, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    { type: 'horizontal', y: 375, start: 400, end: 600 }
+                    // MUCH easier grid - right on the jump path!
+                    { type: 'horizontal', y: 375, start: 200, end: 600 }
                 ],
                 trees: [], walls: [], bgColor: '#2e1a1a'
             },
@@ -686,28 +686,44 @@
             let closestGrid = null;
             let closestDistance = Infinity;
             
-            // IMPROVED: More forgiving grid detection - find closest grid
+            // MUCH SIMPLER: Just dash in the direction you're moving or facing
             level.grids.forEach(grid => {
                 let distance = Infinity;
                 let direction = null;
                 
                 if (grid.type === 'horizontal') {
                     distance = Math.abs(player.y - grid.y);
-                    // Much more forgiving range - 50 pixels instead of 30
-                    if (distance < 50 && 
-                        player.x >= grid.start - 50 && 
-                        player.x <= grid.end + 50) {
-                        if (keys['a'] || keys['arrowleft']) direction = { x: -1, y: 0, line: grid };
-                        else if (keys['d'] || keys['arrowright']) direction = { x: 1, y: 0, line: grid };
+                    // Much more forgiving range - 80 pixels!
+                    if (distance < 80 && 
+                        player.x >= grid.start - 80 && 
+                        player.x <= grid.end + 80) {
+                        
+                        // SIMPLIFIED: Dash in direction you're facing, or use current movement
+                        if (player.facing > 0 || keys['d'] || keys['arrowright']) {
+                            direction = { x: 1, y: 0, line: grid };
+                        } else if (player.facing < 0 || keys['a'] || keys['arrowleft']) {
+                            direction = { x: -1, y: 0, line: grid };
+                        } else {
+                            // Default to right if no direction
+                            direction = { x: 1, y: 0, line: grid };
+                        }
                     }
                 } else if (grid.type === 'vertical') {
                     distance = Math.abs(player.x - grid.x);
                     // Much more forgiving range
-                    if (distance < 50 && 
-                        player.y >= grid.start - 50 && 
-                        player.y <= grid.end + 50) {
-                        if (keys['w'] || keys['arrowup']) direction = { x: 0, y: -1, line: grid };
-                        else if (keys['s'] || keys['arrowdown']) direction = { x: 0, y: 1, line: grid };
+                    if (distance < 80 && 
+                        player.y >= grid.start - 80 && 
+                        player.y <= grid.end + 80) {
+                        
+                        // For vertical grids, prefer upward dash
+                        if (keys['w'] || keys['arrowup']) {
+                            direction = { x: 0, y: -1, line: grid };
+                        } else if (keys['s'] || keys['arrowdown']) {
+                            direction = { x: 0, y: 1, line: grid };
+                        } else {
+                            // Default to up
+                            direction = { x: 0, y: -1, line: grid };
+                        }
                     }
                 }
                 
@@ -723,15 +739,15 @@
                 actions.dashes--;
                 totalMoves++;
                 
-                // Auto-snap to grid line (more forgiving)
+                // Auto-snap to grid line (very forgiving)
                 if (dashDirection.line.type === 'horizontal') {
                     player.y = dashDirection.line.y;
                 } else {
                     player.x = dashDirection.line.x;
                 }
                 
-                // FIXED: Dash speed should NOT be affected by speed multiplier (prevents cheating)
-                player.vx = dashDirection.x * 15; // Constant dash speed
+                // Constant dash speed
+                player.vx = dashDirection.x * 15;
                 player.vy = dashDirection.y * 15;
                 player.state = 'dashing';
                 
@@ -754,10 +770,23 @@
                 flashUI('dash-counter');
                 updateUI();
                 
-                console.log(`💫 Dashed ${dashDirection.x > 0 ? 'right' : dashDirection.x < 0 ? 'left' : dashDirection.y > 0 ? 'down' : 'up'} on grid!`);
+                console.log(`💫 Auto-dashed ${dashDirection.x > 0 ? 'right' : dashDirection.x < 0 ? 'left' : dashDirection.y > 0 ? 'down' : 'up'}!`);
             } else {
-                // Visual feedback when no grid available
-                console.log("❌ No dash grid in range! Get closer to purple lines.");
+                // Better feedback
+                console.log("❌ No dash grid in range! Look for BRIGHT YELLOW pulsing lines!");
+                
+                // Visual feedback - flash all grids briefly
+                level.grids.forEach(grid => {
+                    // Add a brief flash effect to help player locate grids
+                    particles.push({
+                        x: grid.type === 'horizontal' ? (grid.start + grid.end)/2 : grid.x,
+                        y: grid.type === 'horizontal' ? grid.y : (grid.start + grid.end)/2,
+                        vx: 0, vy: 0,
+                        life: 30,
+                        color: '#ff00ff',
+                        size: 8
+                    });
+                });
             }
         }
         
@@ -1408,71 +1437,110 @@
                 }
             });
             
-            // Grid lines with improved visibility
-            ctx.strokeStyle = '#ff00ff';
-            ctx.lineWidth = 3;
-            ctx.shadowColor = '#ff00ff';
-            ctx.shadowBlur = 10;
+            // Grid lines with MUCH better visibility and auto-dash
             level.grids.forEach(grid => {
                 // Check if player is in dash range for this grid
                 let inRange = false;
+                let distance = Infinity;
+                
                 if (grid.type === 'horizontal') {
-                    if (Math.abs(player.y - grid.y) < 50 && 
-                        player.x >= grid.start - 50 && 
-                        player.x <= grid.end + 50) {
+                    distance = Math.abs(player.y - grid.y);
+                    if (distance < 80 && 
+                        player.x >= grid.start - 80 && 
+                        player.x <= grid.end + 80) {
                         inRange = true;
                     }
                 } else if (grid.type === 'vertical') {
-                    if (Math.abs(player.x - grid.x) < 50 && 
-                        player.y >= grid.start - 50 && 
-                        player.y <= grid.end + 50) {
+                    distance = Math.abs(player.x - grid.x);
+                    if (distance < 80 && 
+                        player.y >= grid.start - 80 && 
+                        player.y <= grid.end + 80) {
                         inRange = true;
                     }
                 }
                 
-                // Enhanced visual when in range
+                // MASSIVE visual enhancement when in range
                 if (inRange && actions.dashes > 0) {
+                    // Huge bright pulsing line
                     ctx.strokeStyle = '#ffff00';
-                    ctx.lineWidth = 5;
-                    ctx.shadowBlur = 20;
+                    ctx.lineWidth = 8;
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 30;
                     
-                    // Pulsing effect
-                    const pulse = Math.sin(time * 10) * 0.3 + 0.7;
-                    ctx.globalAlpha = pulse;
+                    // Super obvious pulsing
+                    const pulse = Math.sin(time * 15) * 0.5 + 0.5;
+                    ctx.globalAlpha = 0.7 + pulse * 0.3;
+                    
+                    // Draw thick glowing line
+                    ctx.beginPath();
+                    if (grid.type === 'horizontal') {
+                        ctx.moveTo(grid.start - 20, grid.y);
+                        ctx.lineTo(grid.end + 20, grid.y);
+                    } else {
+                        ctx.moveTo(grid.x, grid.start - 20);
+                        ctx.lineTo(grid.x, grid.end + 20);
+                    }
+                    ctx.stroke();
+                    
+                    // Add glowing particles along the line
+                    if (Math.random() < 0.3) {
+                        let particleX, particleY;
+                        if (grid.type === 'horizontal') {
+                            particleX = grid.start + Math.random() * (grid.end - grid.start);
+                            particleY = grid.y;
+                        } else {
+                            particleX = grid.x;
+                            particleY = grid.start + Math.random() * (grid.end - grid.start);
+                        }
+                        
+                        particles.push({
+                            x: particleX, y: particleY,
+                            vx: (Math.random() - 0.5) * 2,
+                            vy: (Math.random() - 0.5) * 2,
+                            life: 20,
+                            color: '#ffff00',
+                            size: 3
+                        });
+                    }
+                    
+                    // HUGE text instruction
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '12px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 5;
+                    
+                    let instructionText = '';
+                    let instructionX, instructionY;
+                    
+                    if (grid.type === 'horizontal') {
+                        instructionText = 'PRESS SHIFT TO DASH!';
+                        instructionX = grid.start + (grid.end - grid.start)/2;
+                        instructionY = grid.y - 40;
+                    } else {
+                        instructionText = 'PRESS SHIFT TO DASH!';
+                        instructionX = grid.x + 60;
+                        instructionY = grid.start + (grid.end - grid.start)/2;
+                    }
+                    
+                    ctx.fillText(instructionText, instructionX, instructionY);
+                    
                 } else {
+                    // Normal grid appearance
                     ctx.strokeStyle = '#ff00ff';
                     ctx.lineWidth = 3;
                     ctx.shadowBlur = 10;
                     ctx.globalAlpha = 1;
-                }
-                
-                ctx.beginPath();
-                if (grid.type === 'horizontal') {
-                    ctx.moveTo(grid.start, grid.y);
-                    ctx.lineTo(grid.end, grid.y);
-                } else {
-                    ctx.moveTo(grid.x, grid.start);
-                    ctx.lineTo(grid.x, grid.end);
-                }
-                ctx.stroke();
-                
-                // Show direction arrows when in range
-                if (inRange && actions.dashes > 0) {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.font = '16px Press Start 2P';
-                    ctx.textAlign = 'center';
                     
+                    ctx.beginPath();
                     if (grid.type === 'horizontal') {
-                        // Show left/right arrows
-                        ctx.fillText('← SHIFT+A    SHIFT+D →', grid.start + (grid.end - grid.start)/2, grid.y - 20);
+                        ctx.moveTo(grid.start, grid.y);
+                        ctx.lineTo(grid.end, grid.y);
                     } else {
-                        // Show up/down arrows
-                        ctx.save();
-                        ctx.translate(grid.x, grid.start + (grid.end - grid.start)/2);
-                        ctx.rotate(-Math.PI/2);
-                        ctx.fillText('↑ SHIFT+W    SHIFT+S ↓', 0, -20);
-                        ctx.restore();
+                        ctx.moveTo(grid.x, grid.start);
+                        ctx.lineTo(grid.x, grid.end);
                     }
+                    ctx.stroke();
                 }
             });
             ctx.shadowBlur = 0;
