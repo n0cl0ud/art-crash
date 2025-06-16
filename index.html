@@ -273,6 +273,7 @@
         let gameSpeed = 1.0; // Global speed multiplier
         let lastJumpTime = 0; // Simple jump spam protection
         let goalEffect = { active: false, time: 0, particles: [], vortexParticles: [] }; // Epic goal effects
+        let lastDashTime = 0; // For coyote time jumping after dash
         
         // Easier level progression for better learning curve
         const levels = {
@@ -653,7 +654,12 @@
             const now = Date.now();
             if (now - lastJumpTime < 100) return;
             
-            if (actions.jumps <= 0 || !player.grounded) return;
+            if (actions.jumps <= 0) return;
+            
+            // ENHANCED: Allow jumping if grounded OR recently dashed (coyote time)
+            const recentlyDashed = (now - lastDashTime) < 200; // 200ms grace period after dash
+            
+            if (!player.grounded && !recentlyDashed) return;
             
             lastJumpTime = now;
             actions.jumps--;
@@ -666,6 +672,10 @@
             if (player.state === 'dashing') {
                 player.state = 'normal';
                 console.log("🚀 Jump during dash - combo move!");
+            }
+            
+            if (recentlyDashed && !player.grounded) {
+                console.log("🦘 Coyote jump after dash!");
             }
             
             for (let i = 0; i < 8; i++) {
@@ -745,9 +755,15 @@
                 actions.dashes--;
                 totalMoves++;
                 
+                // Track dash time for coyote jumping
+                lastDashTime = Date.now();
+                
                 // Auto-snap to grid line (very forgiving)
                 if (dashDirection.line.type === 'horizontal') {
                     player.y = dashDirection.line.y;
+                    // CRITICAL FIX: Make player grounded on horizontal grids!
+                    player.grounded = true;
+                    player.vy = 0; // Stop falling
                 } else {
                     player.x = dashDirection.line.x;
                 }
@@ -1087,6 +1103,22 @@
                         player.vx = 0;
                         player.onWall = true;
                         player.wallSide = 'right';
+                    }
+                }
+            });
+            
+            // ADDED: Grid collision - treat horizontal grids as invisible platforms
+            level.grids.forEach(grid => {
+                if (grid.type === 'horizontal') {
+                    // Create invisible platform on the grid line
+                    if (player.x + player.size > grid.start && 
+                        player.x < grid.end &&
+                        player.y + player.size >= grid.y && 
+                        player.y + player.size <= grid.y + 12 &&
+                        player.vy >= -1) {
+                        player.y = grid.y - player.size;
+                        player.vy = 0;
+                        player.grounded = true;
                     }
                 }
             });
@@ -1855,14 +1887,25 @@
                 ctx.fillRect(goal.x + goal.width/2 - 1, goal.y - 4, 2, 12);
             }
             
-            // Player
+            // Enhanced player with better visual feedback
             ctx.save();
             ctx.translate(player.x + player.size/2, player.y + player.size/2);
             ctx.scale(player.facing, 1);
             
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = '#ffffff';
-            ctx.shadowBlur = 8;
+            // Show if player can jump (grounded or coyote time)
+            const now = Date.now();
+            const recentlyDashed = (now - lastDashTime) < 200;
+            const canJump = player.grounded || recentlyDashed;
+            
+            // Player glow effect - different colors based on state
+            let glowColor = '#ffffff';
+            if (player.state === 'dashing') glowColor = '#ff00ff';
+            else if (recentlyDashed && !player.grounded) glowColor = '#ffff00'; // Yellow if can coyote jump
+            else if (player.grounded) glowColor = '#00ff00'; // Green if grounded
+            
+            ctx.fillStyle = glowColor;
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = canJump ? 12 : 8;
             ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
             ctx.shadowBlur = 0;
             
@@ -1884,6 +1927,14 @@
                 for (let i = 0; i < 3; i++) {
                     ctx.fillRect(-8 - i * 3, -2, 2, 4);
                 }
+            }
+            
+            // Show jump availability
+            if (canJump && actions.jumps > 0) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '8px Press Start 2P';
+                ctx.textAlign = 'center';
+                ctx.fillText('SPACE', 0, -15);
             }
             
             ctx.restore();
