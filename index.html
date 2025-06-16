@@ -271,7 +271,8 @@
         let totalMoves = 0;
         let levelStats = {}; // Store best completion for each level
         let gameSpeed = 1.0; // Global speed multiplier
-        let inputCooldown = {}; // Prevent input spam
+        let lastJumpTime = 0; // Simple jump spam protection
+        let goalEffect = { active: false, time: 0, particles: [], vortexParticles: [] }; // Epic goal effects
         
         // Easier level progression for better learning curve
         const levels = {
@@ -588,63 +589,48 @@
             }
         };
         
-        // Input handling - Improved multi-key support and fixed conflicts
+        // Input handling - Fixed multi-key conflicts
         document.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             keys[key] = true;
             
-            // Prevent input spam with cooldown
-            const now = Date.now();
-            if (inputCooldown[key] && now - inputCooldown[key] < 50) {
-                return;
-            }
-            
-            // Instant actions (non-movement)
+            // Instant actions (no cooldown conflicts)
             if (key === 'r') {
                 resetLevel();
-                inputCooldown[key] = now;
                 return;
             }
             
             if (key === 'e') {
                 tryTreeTeleport();
-                inputCooldown[key] = now;
                 return;
             }
             
-            // Unified jump/wall bounce handling - SPACE only for clarity
+            // Jump/Wall Bounce - simplified, no cooldown interference
             if (e.key === ' ') {
                 e.preventDefault();
-                if (!inputCooldown['jump'] || now - inputCooldown['jump'] > 100) {
-                    if (player.onWall) {
-                        tryWallBounce();
-                    } else if (player.grounded) {
-                        tryJump();
-                    }
-                    inputCooldown['jump'] = now;
+                // Direct check, no cooldown to interfere with movement
+                if (player.onWall) {
+                    tryWallBounce();
+                } else if (player.grounded) {
+                    tryJump();
                 }
                 return;
             }
             
-            // Dash handling
+            // Dash handling - only when shift is actively pressed
             if (key === 'shift') {
-                if (!inputCooldown['dash'] || now - inputCooldown['dash'] > 150) {
-                    tryGridDash();
-                    inputCooldown['dash'] = now;
-                }
+                tryGridDash();
                 return;
             }
             
-            // Debug controls (removed in production)
+            // Debug controls
             if (key === 'n' && currentLevel < 10) {
                 currentLevel++;
                 loadLevel(currentLevel);
-                inputCooldown[key] = now;
             }
             if (key === 'p' && currentLevel > 1) {
                 currentLevel--;
                 loadLevel(currentLevel);
-                inputCooldown[key] = now;
             }
         });
         
@@ -661,8 +647,13 @@
         }
         
         function tryJump() {
+            // Simple spam protection - 100ms between jumps
+            const now = Date.now();
+            if (now - lastJumpTime < 100) return;
+            
             if (actions.jumps <= 0 || !player.grounded) return;
             
+            lastJumpTime = now;
             actions.jumps--;
             totalMoves++;
             player.vy = -12 * gameSpeed;
@@ -920,20 +911,27 @@
                 levelStats[levelKey] = totalMoves;
             }
             
+            // Reset vortex effect
+            goalEffect.active = false;
+            goalEffect.vortexParticles = [];
+            
             if (levels[currentLevel + 1]) {
                 currentLevel++;
                 loadLevel(currentLevel);
                 
-                for (let i = 0; i < 50; i++) {
+                // Success celebration particles
+                for (let i = 0; i < 30; i++) {
                     particles.push({
                         x: player.x, y: player.y,
                         vx: (Math.random() - 0.5) * 20,
                         vy: (Math.random() - 0.5) * 20,
-                        life: 80, 
-                        color: '#ffff00',
-                        size: Math.random() * 10 + 4
+                        life: 60, 
+                        color: ['#ffff00', '#ff00ff', '#00ffff', '#00ff00'][Math.floor(Math.random() * 4)],
+                        size: Math.random() * 8 + 4
                     });
                 }
+                
+                console.log(`🎯 Level ${currentLevel-1} completed! Moving to: ${getCurrentLevel().name}`);
             } else {
                 showGameComplete();
             }
@@ -983,22 +981,25 @@
             const moveSpeed = 4 * gameSpeed;
             const jumpForce = 12 * gameSpeed;
             
+            // Reset states before collision detection
             player.grounded = false;
             player.onWall = false;
             player.wallSide = null;
             
-            // Platform collision
+            // Platform collision - improved grounded detection
             level.platforms.forEach(platform => {
+                // Ground collision - more forgiving detection
                 if (player.x + player.size > platform.x && 
                     player.x < platform.x + platform.width &&
-                    player.y + player.size > platform.y && 
-                    player.y + player.size < platform.y + platform.height + 10 &&
-                    player.vy >= 0) {
+                    player.y + player.size >= platform.y && 
+                    player.y + player.size <= platform.y + platform.height + 12 &&
+                    player.vy >= -1) { // Allow slight upward velocity to still be grounded
                     player.y = platform.y - player.size;
                     player.vy = 0;
                     player.grounded = true;
                 }
                 
+                // Wall collision
                 if (player.y + player.size > platform.y && 
                     player.y < platform.y + platform.height) {
                     if (player.x + player.size > platform.x && 
@@ -1131,13 +1132,57 @@
                 vibe.pulse += 0.15 * gameSpeed;
             });
             
-            // Goal collision
+            // Goal collision with EPIC VORTEX EFFECT!
             const goal = level.goal;
             if (player.x + player.size > goal.x && 
                 player.x < goal.x + goal.width &&
                 player.y + player.size > goal.y && 
                 player.y < goal.y + goal.height) {
-                nextLevel();
+                
+                if (!goalEffect.active) {
+                    // ACTIVATE THE VORTEX!
+                    goalEffect.active = true;
+                    goalEffect.time = 0;
+                    goalEffect.centerX = goal.x + goal.width/2;
+                    goalEffect.centerY = goal.y + goal.height/2;
+                    
+                    // Create initial explosion of particles
+                    for (let i = 0; i < 50; i++) {
+                        particles.push({
+                            x: player.x + player.size/2, 
+                            y: player.y + player.size/2,
+                            vx: (Math.random() - 0.5) * 25,
+                            vy: (Math.random() - 0.5) * 25,
+                            life: 80, 
+                            color: '#ffff00',
+                            size: Math.random() * 12 + 4
+                        });
+                    }
+                    
+                    // Create vortex spiral particles
+                    for (let i = 0; i < 100; i++) {
+                        const angle = (i / 100) * Math.PI * 4; // Multiple spirals
+                        const distance = 200 + Math.random() * 300;
+                        goalEffect.vortexParticles.push({
+                            angle: angle,
+                            distance: distance,
+                            speed: 0.1 + Math.random() * 0.05,
+                            life: 100,
+                            color: ['#ffff00', '#ff00ff', '#00ffff', '#00ff00'][Math.floor(Math.random() * 4)],
+                            size: Math.random() * 6 + 2,
+                            spiralSpeed: 2 + Math.random() * 3
+                        });
+                    }
+                    
+                    console.log("🌀 VORTEX ACTIVATED! REALITY IS BENDING!");
+                }
+                
+                // Continue vortex effect for 2 seconds, then advance level
+                if (goalEffect.time > 120) { // 2 seconds at 60fps
+                    goalEffect.active = false;
+                    goalEffect.vortexParticles = [];
+                    nextLevel();
+                }
                 return;
             }
             
@@ -1148,6 +1193,7 @@
             time += 0.02 * gameSpeed;
             updatePlayer();
             
+            // Update regular particles
             particles = particles.filter(p => {
                 p.x += p.vx * gameSpeed;
                 p.y += p.vy * gameSpeed;
@@ -1156,6 +1202,51 @@
                 p.vy *= 0.95;
                 return p.life > 0;
             });
+            
+            // Update EPIC VORTEX EFFECT
+            if (goalEffect.active) {
+                goalEffect.time += gameSpeed;
+                
+                // Update vortex particles - spiral toward center
+                goalEffect.vortexParticles = goalEffect.vortexParticles.filter(p => {
+                    // Spiral inward
+                    p.angle += p.spiralSpeed * 0.02 * gameSpeed;
+                    p.distance -= p.speed * 20 * gameSpeed;
+                    p.life -= gameSpeed;
+                    
+                    // Add some chaos particles when they get close to center
+                    if (p.distance < 50 && Math.random() < 0.3) {
+                        particles.push({
+                            x: goalEffect.centerX + Math.cos(p.angle) * p.distance,
+                            y: goalEffect.centerY + Math.sin(p.angle) * p.distance,
+                            vx: (Math.random() - 0.5) * 15,
+                            vy: (Math.random() - 0.5) * 15,
+                            life: 30,
+                            color: p.color,
+                            size: p.size * 0.5
+                        });
+                    }
+                    
+                    return p.life > 0 && p.distance > 5;
+                });
+                
+                // Add more spiral particles during the effect
+                if (goalEffect.time % 3 === 0) {
+                    for (let i = 0; i < 5; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const distance = 400 + Math.random() * 200;
+                        goalEffect.vortexParticles.push({
+                            angle: angle,
+                            distance: distance,
+                            speed: 0.15 + Math.random() * 0.1,
+                            life: 80,
+                            color: ['#ffff00', '#ff00ff', '#00ffff', '#00ff00', '#ffffff'][Math.floor(Math.random() * 5)],
+                            size: Math.random() * 8 + 3,
+                            spiralSpeed: 3 + Math.random() * 4
+                        });
+                    }
+                }
+            }
         }
         
         function render() {
@@ -1376,27 +1467,141 @@
                 }
             });
             
-            // Goal
+            // Enhanced goal with EPIC VORTEX EFFECTS
             const goal = level.goal;
             
-            ctx.fillStyle = '#ffff00';
-            ctx.shadowColor = '#ffff00';
-            ctx.shadowBlur = 15;
-            ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
-            ctx.shadowBlur = 0;
-            
-            ctx.fillStyle = '#ffcc00';
-            ctx.fillRect(goal.x, goal.y, goal.width, 8);
-            ctx.fillRect(goal.x, goal.y + goal.height - 8, goal.width, 8);
-            
-            ctx.fillStyle = '#000';
-            ctx.fillRect(goal.x + 8, goal.y + 12, 6, 8);
-            ctx.fillRect(goal.x + goal.width - 14, goal.y + 12, 6, 8);
-            
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(goal.x + goal.width/2 - 8, goal.y - 12, 16, 8);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(goal.x + goal.width/2 - 1, goal.y - 4, 2, 12);
+            if (goalEffect.active) {
+                // VORTEX BACKGROUND DISTORTION
+                const vortexIntensity = Math.min(goalEffect.time / 60, 1); // Fade in over 1 second
+                
+                // Dark vortex background
+                const gradient = ctx.createRadialGradient(
+                    goalEffect.centerX, goalEffect.centerY, 0,
+                    goalEffect.centerX, goalEffect.centerY, 300 * vortexIntensity
+                );
+                gradient.addColorStop(0, `rgba(0, 0, 0, ${0.8 * vortexIntensity})`);
+                gradient.addColorStop(0.3, `rgba(50, 0, 50, ${0.6 * vortexIntensity})`);
+                gradient.addColorStop(0.7, `rgba(100, 0, 100, ${0.3 * vortexIntensity})`);
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // SPINNING VORTEX RINGS
+                ctx.strokeStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 20;
+                for (let ring = 0; ring < 8; ring++) {
+                    const radius = 20 + ring * 30;
+                    const rotation = goalEffect.time * 0.05 * (ring % 2 === 0 ? 1 : -1);
+                    
+                    ctx.globalAlpha = (1 - ring / 8) * vortexIntensity;
+                    ctx.lineWidth = 3 - ring * 0.3;
+                    
+                    ctx.beginPath();
+                    for (let i = 0; i < 360; i += 10) {
+                        const angle = (i * Math.PI / 180) + rotation;
+                        const waveRadius = radius + Math.sin(angle * 4 + goalEffect.time * 0.1) * 5;
+                        const x = goalEffect.centerX + Math.cos(angle) * waveRadius;
+                        const y = goalEffect.centerY + Math.sin(angle) * waveRadius;
+                        
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+                ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
+                
+                // VORTEX SPIRAL PARTICLES
+                goalEffect.vortexParticles.forEach(p => {
+                    const x = goalEffect.centerX + Math.cos(p.angle) * p.distance;
+                    const y = goalEffect.centerY + Math.sin(p.angle) * p.distance;
+                    
+                    // Particle trail effect
+                    const trailLength = 5;
+                    for (let t = 0; t < trailLength; t++) {
+                        const trailAngle = p.angle - (t * 0.1);
+                        const trailDist = p.distance + (t * 10);
+                        const trailX = goalEffect.centerX + Math.cos(trailAngle) * trailDist;
+                        const trailY = goalEffect.centerY + Math.sin(trailAngle) * trailDist;
+                        
+                        ctx.globalAlpha = (1 - t / trailLength) * (p.life / 100);
+                        ctx.fillStyle = p.color;
+                        ctx.shadowColor = p.color;
+                        ctx.shadowBlur = 10;
+                        ctx.fillRect(trailX - (p.size * (1 - t/trailLength))/2, 
+                                   trailY - (p.size * (1 - t/trailLength))/2, 
+                                   p.size * (1 - t/trailLength), 
+                                   p.size * (1 - t/trailLength));
+                    }
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                });
+                
+                // CENTRAL BLACK HOLE
+                const blackHoleRadius = 15 + Math.sin(goalEffect.time * 0.1) * 5;
+                const blackHoleGradient = ctx.createRadialGradient(
+                    goalEffect.centerX, goalEffect.centerY, 0,
+                    goalEffect.centerX, goalEffect.centerY, blackHoleRadius
+                );
+                blackHoleGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+                blackHoleGradient.addColorStop(0.7, 'rgba(100, 0, 100, 0.8)');
+                blackHoleGradient.addColorStop(1, 'rgba(255, 255, 0, 0.3)');
+                
+                ctx.fillStyle = blackHoleGradient;
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 30;
+                ctx.beginPath();
+                ctx.arc(goalEffect.centerX, goalEffect.centerY, blackHoleRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // REALITY DISTORTION TEXT
+                if (goalEffect.time > 30) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = '12px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 15;
+                    
+                    const messages = [
+                        'REALITY BENDING...',
+                        'ENTERING VORTEX...',
+                        'SPACE-TIME FOLDING...',
+                        'DIMENSION SHIFT...'
+                    ];
+                    const messageIndex = Math.floor(goalEffect.time / 30) % messages.length;
+                    
+                    ctx.globalAlpha = Math.sin(goalEffect.time * 0.2) * 0.5 + 0.5;
+                    ctx.fillText(messages[messageIndex], 
+                               goalEffect.centerX, 
+                               goalEffect.centerY - 60);
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                }
+            } else {
+                // Normal goal (castle) when no vortex
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+                ctx.shadowBlur = 0;
+                
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(goal.x, goal.y, goal.width, 8);
+                ctx.fillRect(goal.x, goal.y + goal.height - 8, goal.width, 8);
+                
+                ctx.fillStyle = '#000';
+                ctx.fillRect(goal.x + 8, goal.y + 12, 6, 8);
+                ctx.fillRect(goal.x + goal.width - 14, goal.y + 12, 6, 8);
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(goal.x + goal.width/2 - 8, goal.y - 12, 16, 8);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(goal.x + goal.width/2 - 1, goal.y - 4, 2, 12);
+            }
             
             // Player
             ctx.save();
@@ -1444,6 +1649,8 @@
                 }
             });
             ctx.globalAlpha = 1;
+            
+            ctx.restore(); // Restore after screen shake
         }
         
         function gameLoop() {
