@@ -154,6 +154,30 @@
             border-radius: 4px;
         }
         
+        .speed-control {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: #fff;
+            font-size: 6px;
+            text-shadow: 1px 1px 0px #000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 8px;
+            border: 2px solid #444;
+            border-radius: 4px;
+        }
+        
+        .speed-slider {
+            width: 80px;
+            margin-top: 4px;
+            accent-color: #ff00ff;
+        }
+        
+        .speed-value {
+            color: #ff00ff;
+            font-weight: bold;
+        }
+        
         .level-complete {
             position: absolute;
             top: 50%;
@@ -213,6 +237,12 @@
             WASD/ARROWS • SPACE=JUMP/BOUNCE • SHIFT=DASH • E=WARP • R=RESET
         </div>
         
+        <div class="speed-control">
+            <div>GAME SPEED</div>
+            <input type="range" class="speed-slider" id="speedSlider" min="0.3" max="2.0" step="0.1" value="1.0">
+            <div>x<span class="speed-value" id="speedValue">1.0</span></div>
+        </div>
+        
         <canvas id="gameCanvas" width="800" height="600"></canvas>
     </div>
 
@@ -240,6 +270,8 @@
         let time = 0;
         let totalMoves = 0;
         let levelStats = {}; // Store best completion for each level
+        let gameSpeed = 1.0; // Global speed multiplier
+        let inputCooldown = {}; // Prevent input spam
         
         // Easier level progression for better learning curve
         const levels = {
@@ -556,39 +588,63 @@
             }
         };
         
-        // Input handling - Fixed to prevent double jumps
+        // Input handling - Improved multi-key support and fixed conflicts
         document.addEventListener('keydown', (e) => {
-            keys[e.key.toLowerCase()] = true;
+            const key = e.key.toLowerCase();
+            keys[key] = true;
             
-            if (e.key.toLowerCase() === 'r') {
+            // Prevent input spam with cooldown
+            const now = Date.now();
+            if (inputCooldown[key] && now - inputCooldown[key] < 50) {
+                return;
+            }
+            
+            // Instant actions (non-movement)
+            if (key === 'r') {
                 resetLevel();
+                inputCooldown[key] = now;
+                return;
             }
-            if (e.key.toLowerCase() === 'e') {
+            
+            if (key === 'e') {
                 tryTreeTeleport();
+                inputCooldown[key] = now;
+                return;
             }
             
-            // Unified jump/wall bounce handling - prevents double inputs
-            if (e.key === ' ' || e.key.toLowerCase() === 'w' || e.key === 'ArrowUp') {
+            // Unified jump/wall bounce handling - prevents conflicts
+            if (e.key === ' ' || key === 'w' || e.key === 'ArrowUp') {
                 e.preventDefault();
-                if (player.onWall) {
-                    tryWallBounce();
-                } else if (player.grounded) {
-                    tryJump();
+                if (!inputCooldown['jump'] || now - inputCooldown['jump'] > 100) {
+                    if (player.onWall) {
+                        tryWallBounce();
+                    } else if (player.grounded) {
+                        tryJump();
+                    }
+                    inputCooldown['jump'] = now;
                 }
+                return;
             }
             
-            if (keys['shift']) {
-                tryGridDash();
+            // Dash handling
+            if (key === 'shift') {
+                if (!inputCooldown['dash'] || now - inputCooldown['dash'] > 150) {
+                    tryGridDash();
+                    inputCooldown['dash'] = now;
+                }
+                return;
             }
-            if (keys['n'] && currentLevel < 10) {
-                // Cheat: next level for testing
+            
+            // Debug controls (removed in production)
+            if (key === 'n' && currentLevel < 10) {
                 currentLevel++;
                 loadLevel(currentLevel);
+                inputCooldown[key] = now;
             }
-            if (keys['p'] && currentLevel > 1) {
-                // Cheat: previous level for testing
+            if (key === 'p' && currentLevel > 1) {
                 currentLevel--;
                 loadLevel(currentLevel);
+                inputCooldown[key] = now;
             }
         });
         
@@ -609,14 +665,14 @@
             
             actions.jumps--;
             totalMoves++;
-            player.vy = -12;
+            player.vy = -12 * gameSpeed;
             player.grounded = false;
             
             for (let i = 0; i < 8; i++) {
                 particles.push({
                     x: player.x + player.size/2, 
                     y: player.y + player.size,
-                    vx: (Math.random() - 0.5) * 6,
+                    vx: (Math.random() - 0.5) * 6 * gameSpeed,
                     vy: Math.random() * 3 + 1,
                     life: 30, 
                     color: '#ffffff',
@@ -662,15 +718,15 @@
                     player.x = dashDirection.line.x;
                 }
                 
-                player.vx = dashDirection.x * 15;
-                player.vy = dashDirection.y * 15;
+                player.vx = dashDirection.x * 15 * gameSpeed;
+                player.vy = dashDirection.y * 15 * gameSpeed;
                 player.state = 'dashing';
                 
                 for (let i = 0; i < 15; i++) {
                     particles.push({
                         x: player.x, y: player.y,
-                        vx: -dashDirection.x * 8 + (Math.random() - 0.5) * 4,
-                        vy: -dashDirection.y * 8 + (Math.random() - 0.5) * 4,
+                        vx: -dashDirection.x * 8 * gameSpeed + (Math.random() - 0.5) * 4,
+                        vy: -dashDirection.y * 8 * gameSpeed + (Math.random() - 0.5) * 4,
                         life: 25, 
                         color: '#ff00ff',
                         size: Math.random() * 4 + 2
@@ -681,7 +737,7 @@
                     if (player.state === 'dashing') {
                         player.state = 'normal'; 
                     }
-                }, 200);
+                }, 200 / gameSpeed);
                 flashUI('dash-counter');
                 updateUI();
             }
@@ -713,8 +769,8 @@
                     for (let i = 0; i < 20; i++) {
                         particles.push({
                             x: player.x, y: player.y,
-                            vx: (Math.random() - 0.5) * 10,
-                            vy: (Math.random() - 0.5) * 10,
+                            vx: (Math.random() - 0.5) * 10 * gameSpeed,
+                            vy: (Math.random() - 0.5) * 10 * gameSpeed,
                             life: 40, 
                             color: '#00ff00',
                             size: Math.random() * 5 + 2
@@ -725,7 +781,7 @@
                         if (player.state === 'just_teleported') {
                             player.state = 'normal'; 
                         }
-                    }, 300);
+                    }, 300 / gameSpeed);
                     
                     flashUI('teleport-counter');
                     updateUI();
@@ -739,7 +795,7 @@
             actions.wallbounces--;
             totalMoves++;
             
-            const bounceForce = 12;
+            const bounceForce = 12 * gameSpeed;
             if (player.wallSide === 'left') {
                 player.vx = bounceForce;
                 player.facing = 1;
@@ -753,8 +809,8 @@
             for (let i = 0; i < 12; i++) {
                 particles.push({
                     x: player.x, y: player.y,
-                    vx: (Math.random() - 0.5) * 8,
-                    vy: (Math.random() - 0.5) * 8,
+                    vx: (Math.random() - 0.5) * 8 * gameSpeed,
+                    vy: (Math.random() - 0.5) * 8 * gameSpeed,
                     life: 30, 
                     color: '#00ffff',
                     size: Math.random() * 4 + 1
@@ -765,7 +821,7 @@
                 if (player.state === 'just_bounced') {
                     player.state = 'normal'; 
                 }
-            }, 300);
+            }, 300 / gameSpeed);
             
             flashUI('wallbounce-counter');
             updateUI();
@@ -922,9 +978,10 @@
         
         function updatePlayer() {
             const level = getCurrentLevel();
-            const gravity = 0.5;
+            const gravity = 0.5 * gameSpeed;
             const friction = 0.8;
-            const moveSpeed = 4;
+            const moveSpeed = 4 * gameSpeed;
+            const jumpForce = 12 * gameSpeed;
             
             player.grounded = false;
             player.onWall = false;
@@ -986,28 +1043,41 @@
                 }
             });
             
-            // Movement
+            // Movement - Improved simultaneous key support
             if (player.state !== 'dashing') {
+                let horizontalInput = 0;
+                
+                // Check all possible left inputs
                 if (keys['a'] || keys['arrowleft']) {
-                    player.vx = -moveSpeed;
-                    player.facing = -1;
-                } else if (keys['d'] || keys['arrowright']) {
-                    player.vx = moveSpeed;
-                    player.facing = 1;
+                    horizontalInput -= 1;
+                }
+                
+                // Check all possible right inputs  
+                if (keys['d'] || keys['arrowright']) {
+                    horizontalInput += 1;
+                }
+                
+                // Apply horizontal movement
+                if (horizontalInput !== 0) {
+                    player.vx = horizontalInput * moveSpeed;
+                    player.facing = horizontalInput;
                 } else {
                     player.vx *= friction;
                 }
                 
+                // Apply gravity and physics
                 if (!player.grounded && !player.onWall) {
                     player.vy += gravity;
                 } else if (player.onWall && player.vy > 0) {
-                    player.vy *= 0.5;
+                    player.vy *= 0.5; // Wall slide
                 }
             }
             
-            player.x += player.vx;
-            player.y += player.vy;
+            // Update position with speed modifier
+            player.x += player.vx * gameSpeed;
+            player.y += player.vy * gameSpeed;
             
+            // Screen boundaries
             if (player.x < 0) player.x = 0;
             if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
             
@@ -1058,7 +1128,7 @@
                         collectVibe(vibe);
                     }
                 }
-                vibe.pulse += 0.15;
+                vibe.pulse += 0.15 * gameSpeed;
             });
             
             // Goal collision
@@ -1071,17 +1141,17 @@
                 return;
             }
             
-            player.animFrame += 0.2;
+            player.animFrame += 0.2 * gameSpeed;
         }
         
         function update() {
-            time += 0.02;
+            time += 0.02 * gameSpeed;
             updatePlayer();
             
             particles = particles.filter(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life--;
+                p.x += p.vx * gameSpeed;
+                p.y += p.vy * gameSpeed;
+                p.life -= gameSpeed;
                 p.vx *= 0.95;
                 p.vy *= 0.95;
                 return p.life > 0;
@@ -1382,13 +1452,36 @@
             requestAnimationFrame(gameLoop);
         }
         
-        // Initialize
-        loadLevel(1);
-        updateUI();
-        gameLoop();
+        // Initialize game and speed control
+        function initializeGame() {
+            // Setup speed control
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValue = document.getElementById('speedValue');
+            
+            if (speedSlider && speedValue) {
+                speedSlider.addEventListener('input', (e) => {
+                    gameSpeed = parseFloat(e.target.value);
+                    speedValue.textContent = gameSpeed.toFixed(1);
+                });
+            }
+            
+            // Load first level and start game
+            loadLevel(1);
+            updateUI();
+            gameLoop();
+            
+            console.log("🎮 Art Crash initialized!");
+            console.log("🎯 Speed control: 0.3x (slow) to 2.0x (fast)");
+            console.log("🎯 Multi-key support: Hold A+SPACE, SHIFT+D, etc.");
+            console.log("🔧 Debug: N/P to skip levels");
+        }
         
-        console.log("🎮 Use N/P to skip levels during testing");
-        console.log("🎯 10 levels of pure action economy puzzles await!");
+        // Start when page loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeGame);
+        } else {
+            initializeGame();
+        }
     </script>
 </body>
 </html>
