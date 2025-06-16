@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD=MOVE • SPACE=JUMP • SHIFT=DASH • COMBOS: SHIFT→SPACE • E=WARP • R=RESET
+            WASD=MOVE • SPACE=JUMP • SHIFT=DASH(purple lines) • COMBOS: SHIFT→SPACE
         </div>
         
         <div class="speed-control">
@@ -322,20 +322,19 @@
                 description: "Dash then jump to reach far platforms",
                 spawn: { x: 100, y: 500 },
                 goal: { x: 650, y: 300, width: 40, height: 40 },
-                startingActions: { jumps: 3, dashes: 1, teleports: 0, wallbounces: 0 },
+                startingActions: { jumps: 2, dashes: 1, teleports: 0, wallbounces: 0 },
                 optimalMoves: 3,
                 platforms: [
                     { x: 50, y: 550, width: 150, height: 20 },
-                    { x: 300, y: 450, width: 100, height: 20 },
                     { x: 600, y: 340, width: 150, height: 20 }
                 ],
                 hazards: [],
                 vibes: [
-                    { x: 525, y: 310, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 675, y: 310, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    // Grid positioned to require dash+jump combo
-                    { type: 'horizontal', y: 400, start: 200, end: 500 }
+                    // Grid positioned to REQUIRE dash+jump combo (no platform under it)
+                    { type: 'horizontal', y: 450, start: 250, end: 550 }
                 ],
                 trees: [], walls: [], bgColor: '#2e1a1a'
             },
@@ -657,7 +656,7 @@
             if (actions.jumps <= 0) return;
             
             // ENHANCED: Allow jumping if grounded OR recently dashed (coyote time)
-            const recentlyDashed = (now - lastDashTime) < 200; // 200ms grace period after dash
+            const recentlyDashed = (now - lastDashTime) < 500; // Increased to 500ms for easier combos
             
             if (!player.grounded && !recentlyDashed) return;
             
@@ -761,16 +760,14 @@
                 // Auto-snap to grid line (very forgiving)
                 if (dashDirection.line.type === 'horizontal') {
                     player.y = dashDirection.line.y;
-                    // CRITICAL FIX: Make player grounded on horizontal grids!
-                    player.grounded = true;
-                    player.vy = 0; // Stop falling
+                    // Don't force grounded here - let physics handle it
                 } else {
                     player.x = dashDirection.line.x;
                 }
                 
-                // Constant dash speed
-                player.vx = dashDirection.x * 15;
-                player.vy = dashDirection.y * 15;
+                // BALANCED dash speed - not too fast, not too slow
+                player.vx = dashDirection.x * 8; // Reduced from 15 to 8
+                player.vy = dashDirection.y * 8;
                 player.state = 'dashing';
                 
                 for (let i = 0; i < 15; i++) {
@@ -788,7 +785,7 @@
                     if (player.state === 'dashing') {
                         player.state = 'normal'; 
                     }
-                }, 100); // FIXED: Much shorter dash duration - 100ms instead of 200ms
+                }, 300); // FIXED: Longer dash duration for better combo timing
                 flashUI('dash-counter');
                 updateUI();
                 
@@ -1107,21 +1104,8 @@
                 }
             });
             
-            // ADDED: Grid collision - treat horizontal grids as invisible platforms
-            level.grids.forEach(grid => {
-                if (grid.type === 'horizontal') {
-                    // Create invisible platform on the grid line
-                    if (player.x + player.size > grid.start && 
-                        player.x < grid.end &&
-                        player.y + player.size >= grid.y && 
-                        player.y + player.size <= grid.y + 12 &&
-                        player.vy >= -1) {
-                        player.y = grid.y - player.size;
-                        player.vy = 0;
-                        player.grounded = true;
-                    }
-                }
-            });
+            // REMOVED: Grid collision - grids are NOT walkable platforms!
+            // Grids should only be usable with SHIFT dash!
             
             // Wall objects collision
             level.walls.forEach(wall => {
@@ -1590,7 +1574,7 @@
                     if (currentLevel === 3) {
                         ctx.fillStyle = '#00ff00';
                         ctx.font = '8px Press Start 2P';
-                        ctx.fillText('THEN PRESS SPACE TO JUMP!', instructionX, instructionY + 20);
+                        ctx.fillText('DASH ACROSS, THEN SPACE!', instructionX, instructionY + 20);
                     }
                     
                 } else {
@@ -1894,7 +1878,7 @@
             
             // Show if player can jump (grounded or coyote time)
             const now = Date.now();
-            const recentlyDashed = (now - lastDashTime) < 200;
+            const recentlyDashed = (now - lastDashTime) < 500; // Updated to match jump function
             const canJump = player.grounded || recentlyDashed;
             
             // Player glow effect - different colors based on state
