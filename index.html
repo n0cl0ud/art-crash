@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT=AUTO-DASH • E=WARP • R=RESET
+            WASD=MOVE • SPACE=JUMP • SHIFT=DASH • COMBOS: SHIFT→SPACE • E=WARP • R=RESET
         </div>
         
         <div class="speed-control">
@@ -317,8 +317,8 @@
             },
             
             3: {
-                name: "DASH TUTORIAL",
-                description: "Learn to dash on grids",
+                name: "DASH + JUMP COMBO",
+                description: "Dash then jump to reach far platforms",
                 spawn: { x: 100, y: 500 },
                 goal: { x: 650, y: 300, width: 40, height: 40 },
                 startingActions: { jumps: 3, dashes: 1, teleports: 0, wallbounces: 0 },
@@ -333,8 +333,8 @@
                     { x: 525, y: 310, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    // MUCH easier grid - right on the jump path!
-                    { type: 'horizontal', y: 375, start: 200, end: 600 }
+                    // Grid positioned to require dash+jump combo
+                    { type: 'horizontal', y: 400, start: 200, end: 500 }
                 ],
                 trees: [], walls: [], bgColor: '#2e1a1a'
             },
@@ -662,6 +662,12 @@
             player.vy = -12; // Constant jump force regardless of speed
             player.grounded = false;
             
+            // CRITICAL FIX: Allow jumping during dash! End dash state when jumping
+            if (player.state === 'dashing') {
+                player.state = 'normal';
+                console.log("🚀 Jump during dash - combo move!");
+            }
+            
             for (let i = 0; i < 8; i++) {
                 particles.push({
                     x: player.x + player.size/2, 
@@ -766,7 +772,7 @@
                     if (player.state === 'dashing') {
                         player.state = 'normal'; 
                     }
-                }, 200 / gameSpeed);
+                }, 100); // FIXED: Much shorter dash duration - 100ms instead of 200ms
                 flashUI('dash-counter');
                 updateUI();
                 
@@ -1108,8 +1114,9 @@
                 }
             });
             
-            // Movement - Improved simultaneous key support
+            // Movement - Allow some control even during dash
             if (player.state !== 'dashing') {
+                // Normal movement
                 let horizontalInput = 0;
                 
                 // Check all possible left inputs
@@ -1135,6 +1142,28 @@
                     player.vy += gravity;
                 } else if (player.onWall && player.vy > 0) {
                     player.vy *= 0.5; // Wall slide
+                }
+            } else {
+                // IMPROVED: Allow some control during dash, but don't override dash momentum
+                let horizontalInput = 0;
+                
+                if (keys['a'] || keys['arrowleft']) {
+                    horizontalInput -= 1;
+                }
+                
+                if (keys['d'] || keys['arrowright']) {
+                    horizontalInput += 1;
+                }
+                
+                // Allow minor course correction during dash
+                if (horizontalInput !== 0) {
+                    player.vx += horizontalInput * moveSpeed * 0.3; // 30% control during dash
+                    player.facing = horizontalInput;
+                }
+                
+                // Still apply gravity during dash
+                if (!player.grounded && !player.onWall) {
+                    player.vy += gravity;
                 }
             }
             
@@ -1524,6 +1553,13 @@
                     }
                     
                     ctx.fillText(instructionText, instructionX, instructionY);
+                    
+                    // SPECIAL: Show combo hint for dash+jump levels
+                    if (currentLevel === 3) {
+                        ctx.fillStyle = '#00ff00';
+                        ctx.font = '8px Press Start 2P';
+                        ctx.fillText('THEN PRESS SPACE TO JUMP!', instructionX, instructionY + 20);
+                    }
                     
                 } else {
                     // Normal grid appearance
