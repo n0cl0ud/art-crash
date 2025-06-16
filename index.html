@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD/ARROWS • SPACE=JUMP/BOUNCE • SHIFT=DASH • E=WARP • R=RESET
+            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT=DASH • E=WARP • R=RESET
         </div>
         
         <div class="speed-control">
@@ -612,8 +612,8 @@
                 return;
             }
             
-            // Unified jump/wall bounce handling - prevents conflicts
-            if (e.key === ' ' || key === 'w' || e.key === 'ArrowUp') {
+            // Unified jump/wall bounce handling - SPACE only for clarity
+            if (e.key === ' ') {
                 e.preventDefault();
                 if (!inputCooldown['jump'] || now - inputCooldown['jump'] > 100) {
                     if (player.onWall) {
