@@ -241,278 +241,263 @@
         let totalMoves = 0;
         let levelStats = {}; // Store best completion for each level
         
-        // 10 carefully designed levels with progressive difficulty
+        // Easier level progression for better learning curve
         const levels = {
             1: {
-                name: "TUTORIAL: JUMP",
-                description: "Learn the basics",
+                name: "FIRST STEPS",
+                description: "Learn to jump",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 450, width: 40, height: 40 },
-                startingActions: { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 },
-                optimalMoves: 3,
+                goal: { x: 650, y: 500, width: 40, height: 40 },
+                startingActions: { jumps: 5, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 2,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 250, y: 500, width: 100, height: 20 },
-                    { x: 450, y: 450, width: 100, height: 20 },
-                    { x: 650, y: 490, width: 100, height: 20 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 300, y: 500, width: 200, height: 20 },
+                    { x: 600, y: 540, width: 150, height: 20 }
                 ],
                 hazards: [],
                 vibes: [
-                    { x: 300, y: 470, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 400, y: 470, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [], trees: [], walls: [], bgColor: '#1a1a2e'
             },
             
             2: {
-                name: "DASH INTRODUCTION",
-                description: "Master the dash technique",
+                name: "SIMPLE HOPS",
+                description: "Master basic jumping",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 200, width: 40, height: 40 },
-                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
-                optimalMoves: 4,
+                goal: { x: 650, y: 400, width: 40, height: 40 },
+                startingActions: { jumps: 4, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 3,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 300, y: 450, width: 80, height: 20 },
-                    { x: 650, y: 240, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 300, y: 500, width: 100, height: 20 },
+                    { x: 500, y: 450, width: 100, height: 20 },
+                    { x: 600, y: 440, width: 150, height: 20 }
                 ],
                 hazards: [],
                 vibes: [
-                    { x: 340, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 },
-                    { x: 500, y: 350, type: 'dash', collected: false, size: 12, pulse: 0 }
+                    { x: 350, y: 470, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 550, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
-                grids: [
-                    { type: 'horizontal', y: 350, start: 400, end: 650 }
-                ],
-                trees: [], walls: [], bgColor: '#2e1a1a'
+                grids: [], trees: [], walls: [], bgColor: '#1a1a2e'
             },
             
             3: {
-                name: "FIRE GAUNTLET",
-                description: "Dash through flames",
+                name: "DASH TUTORIAL",
+                description: "Learn to dash on grids",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 100, width: 40, height: 40 },
-                startingActions: { jumps: 1, dashes: 1, teleports: 0, wallbounces: 0 },
+                goal: { x: 650, y: 300, width: 40, height: 40 },
+                startingActions: { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 },
                 optimalMoves: 3,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 300, y: 400, width: 100, height: 20 },
-                    { x: 650, y: 140, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 300, y: 450, width: 100, height: 20 },
+                    { x: 600, y: 340, width: 150, height: 20 }
                 ],
-                hazards: [
-                    { x: 200, y: 350, width: 350, height: 100, type: 'fire' }
-                ],
+                hazards: [],
                 vibes: [
-                    { x: 350, y: 370, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 350, y: 420, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 525, y: 375, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    { type: 'horizontal', y: 300, start: 400, end: 650 }
+                    { type: 'horizontal', y: 375, start: 400, end: 600 }
                 ],
                 trees: [], walls: [], bgColor: '#2e1a1a'
             },
             
             4: {
-                name: "TELEPORT BASICS",
-                description: "Warp between trees",
+                name: "EASY FIRE",
+                description: "Dash through small flames",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 50, width: 40, height: 40 },
-                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
+                goal: { x: 650, y: 300, width: 40, height: 40 },
+                startingActions: { jumps: 2, dashes: 1, teleports: 0, wallbounces: 0 },
                 optimalMoves: 3,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 200, y: 450, width: 80, height: 20 },
-                    { x: 650, y: 90, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 300, y: 450, width: 100, height: 20 },
+                    { x: 600, y: 340, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 300, y: 300, width: 300, height: 150, type: 'electric' }
+                    { x: 350, y: 400, width: 200, height: 50, type: 'fire' }
                 ],
                 vibes: [
-                    { x: 240, y: 420, type: 'teleport', collected: false, size: 12, pulse: 0 },
-                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 350, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 375, start: 400, end: 600 }
+                ],
+                trees: [], walls: [], bgColor: '#2e1a1a'
+            },
+            
+            5: {
+                name: "TELEPORT INTRO",
+                description: "Warp between trees",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 650, y: 200, width: 40, height: 40 },
+                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 3,
+                platforms: [
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 200, y: 450, width: 100, height: 20 },
+                    { x: 600, y: 240, width: 150, height: 20 }
+                ],
+                hazards: [
+                    { x: 320, y: 350, width: 250, height: 100, type: 'electric' }
+                ],
+                vibes: [
+                    { x: 250, y: 420, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 210, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [],
                 trees: [
-                    { x: 240, y: 450, size: 25 },
-                    { x: 450, y: 200, size: 25 },
-                    { x: 700, y: 90, size: 25 }
+                    { x: 250, y: 450, size: 25 },
+                    { x: 450, y: 250, size: 25 },
+                    { x: 675, y: 240, size: 25 }
                 ],
                 walls: [], bgColor: '#1a2e1a'
             },
             
-            5: {
-                name: "WALL BOUNCE INTRO",
-                description: "Master wall bouncing",
+            6: {
+                name: "WALL BOUNCE BASIC",
+                description: "Bounce off walls through ice",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 50, width: 40, height: 40 },
-                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
+                goal: { x: 650, y: 200, width: 40, height: 40 },
+                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
                 optimalMoves: 4,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 650, y: 90, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 600, y: 240, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 200, y: 400, width: 400, height: 80, type: 'ice' }
+                    { x: 250, y: 450, width: 300, height: 60, type: 'ice' }
                 ],
                 vibes: [
-                    { x: 320, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 520, y: 250, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 320, y: 400, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 480, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 210, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [],
                 trees: [],
                 walls: [
-                    { x: 300, y: 200, width: 20, height: 200 },
-                    { x: 500, y: 150, width: 20, height: 250 }
+                    { x: 300, y: 300, width: 20, height: 150 },
+                    { x: 460, y: 250, width: 20, height: 200 }
                 ],
                 bgColor: '#1a2e2e'
             },
             
-            6: {
-                name: "RESOURCE MANAGEMENT",
-                description: "Plan your moves carefully",
+            7: {
+                name: "COMBINATION TIME",
+                description: "Use multiple abilities",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 100, width: 40, height: 40 },
-                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
+                goal: { x: 650, y: 150, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
                 optimalMoves: 5,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 50, y: 550, width: 150, height: 20 },
                     { x: 250, y: 450, width: 80, height: 20 },
                     { x: 450, y: 350, width: 80, height: 20 },
-                    { x: 650, y: 140, width: 100, height: 80 }
+                    { x: 600, y: 190, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 350, y: 300, width: 250, height: 100, type: 'fire' },
-                    { x: 200, y: 200, width: 150, height: 80, type: 'deadly' }
+                    { x: 200, y: 400, width: 100, height: 80, type: 'fire' },
+                    { x: 380, y: 300, width: 150, height: 80, type: 'electric' }
                 ],
                 vibes: [
-                    { x: 290, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 },
-                    { x: 490, y: 320, type: 'dash', collected: false, size: 12, pulse: 0 },
-                    { x: 520, y: 250, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 200, y: 370, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 490, y: 320, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 160, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    { type: 'horizontal', y: 250, start: 450, end: 650 }
-                ],
-                trees: [], walls: [], bgColor: '#2e2e1a'
-            },
-            
-            7: {
-                name: "MULTI-HAZARD MAZE",
-                description: "Navigate mixed dangers",
-                spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 50, width: 40, height: 40 },
-                startingActions: { jumps: 1, dashes: 0, teleports: 1, wallbounces: 0 },
-                optimalMoves: 6,
-                platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 200, y: 450, width: 80, height: 20 },
-                    { x: 400, y: 350, width: 80, height: 20 },
-                    { x: 650, y: 90, width: 100, height: 80 }
-                ],
-                hazards: [
-                    { x: 150, y: 400, width: 100, height: 100, type: 'fire' },
-                    { x: 300, y: 300, width: 150, height: 100, type: 'electric' },
-                    { x: 500, y: 200, width: 120, height: 80, type: 'ice' }
-                ],
-                vibes: [
-                    { x: 200, y: 350, type: 'dash', collected: false, size: 12, pulse: 0 },
-                    { x: 440, y: 320, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 600, y: 150, type: 'jump', collected: false, size: 12, pulse: 0 }
-                ],
-                grids: [
-                    { type: 'horizontal', y: 200, start: 150, end: 250 }
+                    { type: 'horizontal', y: 370, start: 200, end: 300 }
                 ],
                 trees: [
-                    { x: 100, y: 300, size: 25 },
-                    { x: 375, y: 250, size: 25 },
-                    { x: 700, y: 90, size: 25 }
+                    { x: 300, y: 350, size: 25 },
+                    { x: 490, y: 250, size: 25 },
+                    { x: 675, y: 190, size: 25 }
                 ],
-                walls: [
-                    { x: 550, y: 100, width: 20, height: 180 }
-                ],
-                bgColor: '#2e1a2e'
+                walls: [], bgColor: '#2e1a2e'
             },
             
             8: {
-                name: "PRECISION CHALLENGE",
-                description: "Every move counts",
+                name: "PLANNING CHALLENGE",
+                description: "Think before you move",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 50, width: 40, height: 40 },
-                startingActions: { jumps: 0, dashes: 1, teleports: 0, wallbounces: 1 },
+                goal: { x: 650, y: 100, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
                 optimalMoves: 6,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 300, y: 400, width: 60, height: 20 },
-                    { x: 500, y: 300, width: 60, height: 20 },
-                    { x: 650, y: 90, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 250, y: 450, width: 80, height: 20 },
+                    { x: 400, y: 350, width: 80, height: 20 },
+                    { x: 550, y: 250, width: 80, height: 20 },
+                    { x: 600, y: 140, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 180, y: 350, width: 180, height: 120, type: 'fire' },
-                    { x: 380, y: 250, width: 180, height: 100, type: 'ice' },
-                    { x: 580, y: 150, width: 100, height: 100, type: 'electric' }
+                    { x: 180, y: 400, width: 150, height: 80, type: 'fire' },
+                    { x: 330, y: 300, width: 150, height: 80, type: 'electric' },
+                    { x: 480, y: 200, width: 150, height: 80, type: 'ice' }
                 ],
                 vibes: [
-                    { x: 270, y: 250, type: 'jump', collected: false, size: 12, pulse: 0 },
-                    { x: 470, y: 150, type: 'teleport', collected: false, size: 12, pulse: 0 },
-                    { x: 540, y: 270, type: 'jump', collected: false, size: 12, pulse: 0 },
-                    { x: 630, y: 100, type: 'wallbounce', collected: false, size: 12, pulse: 0 }
+                    { x: 290, y: 420, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 440, y: 320, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 590, y: 220, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 110, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    { type: 'horizontal', y: 250, start: 200, end: 360 },
-                    { type: 'vertical', x: 470, start: 150, end: 300 }
+                    { type: 'horizontal', y: 400, start: 180, end: 330 },
+                    { type: 'horizontal', y: 220, start: 480, end: 630 }
                 ],
                 trees: [
-                    { x: 330, y: 200, size: 25 },
-                    { x: 470, y: 150, size: 25 },
-                    { x: 700, y: 90, size: 25 }
+                    { x: 370, y: 280, size: 25 },
+                    { x: 440, y: 220, size: 25 },
+                    { x: 675, y: 140, size: 25 }
                 ],
                 walls: [
-                    { x: 470, y: 200, width: 20, height: 100 },
-                    { x: 630, y: 100, width: 20, height: 150 }
+                    { x: 520, y: 180, width: 20, height: 70 }
                 ],
                 bgColor: '#1a1a2e'
             },
             
             9: {
-                name: "GAUNTLET FINALE",
+                name: "ADVANCED TACTICS",
                 description: "Master all techniques",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 700, y: 50, width: 40, height: 40 },
-                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
-                optimalMoves: 8,
+                goal: { x: 650, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 0, dashes: 1, teleports: 0, wallbounces: 0 },
+                optimalMoves: 7,
                 platforms: [
-                    { x: 50, y: 550, width: 100, height: 20 },
-                    { x: 650, y: 90, width: 100, height: 80 }
+                    { x: 50, y: 550, width: 150, height: 20 },
+                    { x: 600, y: 90, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 180, y: 480, width: 120, height: 70, type: 'fire' },
-                    { x: 320, y: 380, width: 120, height: 70, type: 'electric' },
-                    { x: 460, y: 280, width: 120, height: 70, type: 'ice' },
-                    { x: 300, y: 150, width: 250, height: 80, type: 'deadly' },
-                    { x: 580, y: 200, width: 80, height: 150, type: 'fire' }
+                    { x: 220, y: 480, width: 100, height: 70, type: 'fire' },
+                    { x: 350, y: 380, width: 120, height: 70, type: 'electric' },
+                    { x: 480, y: 280, width: 120, height: 70, type: 'ice' },
+                    { x: 350, y: 150, width: 200, height: 60, type: 'deadly' }
                 ],
                 vibes: [
-                    { x: 200, y: 430, type: 'dash', collected: false, size: 12, pulse: 0 },
-                    { x: 380, y: 330, type: 'teleport', collected: false, size: 12, pulse: 0 },
-                    { x: 520, y: 230, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 400, y: 100, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 550, y: 150, type: 'dash', collected: false, size: 12, pulse: 0 },
-                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    { x: 270, y: 430, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 410, y: 330, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 540, y: 230, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 320, y: 100, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
-                    { type: 'horizontal', y: 450, start: 150, end: 300 },
-                    { type: 'horizontal', y: 350, start: 290, end: 440 },
-                    { type: 'horizontal', y: 250, start: 430, end: 580 },
-                    { type: 'vertical', x: 400, start: 100, end: 150 },
-                    { type: 'horizontal', y: 150, start: 550, end: 650 }
+                    { type: 'horizontal', y: 450, start: 200, end: 320 },
+                    { type: 'horizontal', y: 350, start: 320, end: 470 },
+                    { type: 'horizontal', y: 250, start: 450, end: 600 },
+                    { type: 'horizontal', y: 100, start: 300, end: 350 }
                 ],
                 trees: [
-                    { x: 240, y: 380, size: 25 },
-                    { x: 380, y: 280, size: 25 },
-                    { x: 400, y: 100, size: 25 },
-                    { x: 700, y: 90, size: 25 }
+                    { x: 300, y: 380, size: 25 },
+                    { x: 410, y: 280, size: 25 },
+                    { x: 320, y: 100, size: 25 },
+                    { x: 675, y: 90, size: 25 }
                 ],
                 walls: [
-                    { x: 400, y: 100, width: 20, height: 50 },
-                    { x: 520, y: 200, width: 20, height: 80 }
+                    { x: 320, y: 100, width: 20, height: 50 },
+                    { x: 540, y: 200, width: 20, height: 80 }
                 ],
                 bgColor: '#2e1a1a'
             },
@@ -571,7 +556,7 @@
             }
         };
         
-        // Input handling
+        // Input handling - Fixed to prevent double jumps
         document.addEventListener('keydown', (e) => {
             keys[e.key.toLowerCase()] = true;
             
@@ -581,7 +566,9 @@
             if (e.key.toLowerCase() === 'e') {
                 tryTreeTeleport();
             }
-            if (e.key === ' ') {
+            
+            // Unified jump/wall bounce handling - prevents double inputs
+            if (e.key === ' ' || e.key.toLowerCase() === 'w' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (player.onWall) {
                     tryWallBounce();
@@ -589,13 +576,7 @@
                     tryJump();
                 }
             }
-            if (keys['w'] || keys['arrowup']) {
-                if (player.onWall) {
-                    tryWallBounce();
-                } else if (player.grounded) {
-                    tryJump();
-                }
-            }
+            
             if (keys['shift']) {
                 tryGridDash();
             }
