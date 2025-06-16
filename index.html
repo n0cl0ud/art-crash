@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Collector - Action Economy Puzzler</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(45deg, #0f0f23, #1a1a2e, #16213e);
+            font-family: 'Press Start 2P', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            border: 4px solid #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            background: #000;
+        }
+        
+        #gameCanvas {
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #fff;
+            font-size: 8px;
+            z-index: 100;
+            text-shadow: 2px 2px 0px #000;
+        }
+        
+        .level-info {
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #fff;
+            border-radius: 4px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .action-counter {
+            padding: 6px 8px;
+            border: 2px solid;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .action-counter.depleted {
+            opacity: 0.4;
+            filter: grayscale(0.8);
+        }
+        
+        .action-counter::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .pulsing {
+            animation: pulse 0.6s ease-in-out;
+        }
+        
+        .jump-counter { 
+            background: linear-gradient(135deg, #444, #666);
+            border-color: #fff;
+            color: #fff;
+        }
+        
+        .dash-counter { 
+            background: linear-gradient(135deg, #ff00ff, #ff44ff);
+            border-color: #ff88ff;
+            color: #fff;
+        }
+        
+        .teleport-counter { 
+            background: linear-gradient(135deg, #00ff00, #44ff44);
+            border-color: #88ff88;
+            color: #000;
+        }
+        
+        .wallbounce-counter { 
+            background: linear-gradient(135deg, #00ffff, #44ffff);
+            border-color: #88ffff;
+            color: #000;
+        }
+        
+        .stats {
+            margin-top: 12px;
+            padding: 6px 8px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #444;
+            border-radius: 4px;
+            font-size: 7px;
+        }
+        
+        .death-counter {
+            color: #ff4444;
+        }
+        
+        .level-progress {
+            color: #44ff44;
+        }
+        
+        .controls-hint {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            color: #aaa;
+            font-size: 6px;
+            text-shadow: 1px 1px 0px #000;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .level-complete {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffff00;
+            padding: 20px;
+            border: 4px solid #ffff00;
+            border-radius: 8px;
+            text-align: center;
+            animation: bounce 0.5s ease-out;
+            z-index: 200;
+        }
+        
+        @keyframes bounce {
+            0% { transform: translate(-50%, -50%) scale(0.5); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <div class="level-info">
+                <div>LEVEL <span id="currentLevel">1</span>/10</div>
+                <div id="levelName">TUTORIAL: JUMP</div>
+            </div>
+            
+            <div class="action-grid">
+                <div class="action-counter jump-counter">
+                    <div>JUMP</div>
+                    <div id="jumpCount">3</div>
+                </div>
+                <div class="action-counter dash-counter">
+                    <div>DASH</div>
+                    <div id="dashCount">0</div>
+                </div>
+                <div class="action-counter teleport-counter">
+                    <div>WARP</div>
+                    <div id="teleportCount">0</div>
+                </div>
+                <div class="action-counter wallbounce-counter">
+                    <div>BOUNCE</div>
+                    <div id="wallbounceCount">0</div>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="death-counter">DEATHS: <span id="deathCount">0</span></div>
+                <div class="level-progress">BEST: <span id="bestMoves">--</span> MOVES</div>
+            </div>
+        </div>
+        
+        <div class="controls-hint">
+            WASD/ARROWS • SPACE=JUMP/BOUNCE • SHIFT=DASH • E=WARP • R=RESET
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        console.log("🎮 Vibe Collector - Action Economy Puzzler");
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        
+        // Game state
+        let player = {
+            x: 100, y: 500, size: 16, vx: 0, vy: 0,
+            startX: 100, startY: 500,
+            grounded: false, onWall: false, wallSide: null,
+            state: 'normal', animFrame: 0, facing: 1
+        };
+        
+        let actions = { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 };
+        let startingActions = { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 };
+        let currentLevel = 1;
+        let deathCount = 0;
+        let particles = [];
+        let keys = {};
+        let time = 0;
+        let totalMoves = 0;
+        let levelStats = {}; // Store best completion for each level
+        
+        // 10 carefully designed levels with progressive difficulty
+        const levels = {
+            1: {
+                name: "TUTORIAL: JUMP",
+                description: "Learn the basics",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 450, width: 40, height: 40 },
+                startingActions: { jumps: 3, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 3,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 250, y: 500, width: 100, height: 20 },
+                    { x: 450, y: 450, width: 100, height: 20 },
+                    { x: 650, y: 490, width: 100, height: 20 }
+                ],
+                hazards: [],
+                vibes: [
+                    { x: 300, y: 470, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [], trees: [], walls: [], bgColor: '#1a1a2e'
+            },
+            
+            2: {
+                name: "DASH INTRODUCTION",
+                description: "Master the dash technique",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 200, width: 40, height: 40 },
+                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 4,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 300, y: 450, width: 80, height: 20 },
+                    { x: 650, y: 240, width: 100, height: 80 }
+                ],
+                hazards: [],
+                vibes: [
+                    { x: 340, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 500, y: 350, type: 'dash', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 350, start: 400, end: 650 }
+                ],
+                trees: [], walls: [], bgColor: '#2e1a1a'
+            },
+            
+            3: {
+                name: "FIRE GAUNTLET",
+                description: "Dash through flames",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 100, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 1, teleports: 0, wallbounces: 0 },
+                optimalMoves: 3,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 300, y: 400, width: 100, height: 20 },
+                    { x: 650, y: 140, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 200, y: 350, width: 350, height: 100, type: 'fire' }
+                ],
+                vibes: [
+                    { x: 350, y: 370, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 300, start: 400, end: 650 }
+                ],
+                trees: [], walls: [], bgColor: '#2e1a1a'
+            },
+            
+            4: {
+                name: "TELEPORT BASICS",
+                description: "Warp between trees",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 3,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 200, y: 450, width: 80, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 300, y: 300, width: 300, height: 150, type: 'electric' }
+                ],
+                vibes: [
+                    { x: 240, y: 420, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [],
+                trees: [
+                    { x: 240, y: 450, size: 25 },
+                    { x: 450, y: 200, size: 25 },
+                    { x: 700, y: 90, size: 25 }
+                ],
+                walls: [], bgColor: '#1a2e1a'
+            },
+            
+            5: {
+                name: "WALL BOUNCE INTRO",
+                description: "Master wall bouncing",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 4,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 200, y: 400, width: 400, height: 80, type: 'ice' }
+                ],
+                vibes: [
+                    { x: 320, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 520, y: 250, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [],
+                trees: [],
+                walls: [
+                    { x: 300, y: 200, width: 20, height: 200 },
+                    { x: 500, y: 150, width: 20, height: 250 }
+                ],
+                bgColor: '#1a2e2e'
+            },
+            
+            6: {
+                name: "RESOURCE MANAGEMENT",
+                description: "Plan your moves carefully",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 100, width: 40, height: 40 },
+                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 5,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 250, y: 450, width: 80, height: 20 },
+                    { x: 450, y: 350, width: 80, height: 20 },
+                    { x: 650, y: 140, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 350, y: 300, width: 250, height: 100, type: 'fire' },
+                    { x: 200, y: 200, width: 150, height: 80, type: 'deadly' }
+                ],
+                vibes: [
+                    { x: 290, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 490, y: 320, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 520, y: 250, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 250, start: 450, end: 650 }
+                ],
+                trees: [], walls: [], bgColor: '#2e2e1a'
+            },
+            
+            7: {
+                name: "MULTI-HAZARD MAZE",
+                description: "Navigate mixed dangers",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 1, wallbounces: 0 },
+                optimalMoves: 6,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 200, y: 450, width: 80, height: 20 },
+                    { x: 400, y: 350, width: 80, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 150, y: 400, width: 100, height: 100, type: 'fire' },
+                    { x: 300, y: 300, width: 150, height: 100, type: 'electric' },
+                    { x: 500, y: 200, width: 120, height: 80, type: 'ice' }
+                ],
+                vibes: [
+                    { x: 200, y: 350, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 440, y: 320, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 600, y: 150, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 200, start: 150, end: 250 }
+                ],
+                trees: [
+                    { x: 100, y: 300, size: 25 },
+                    { x: 375, y: 250, size: 25 },
+                    { x: 700, y: 90, size: 25 }
+                ],
+                walls: [
+                    { x: 550, y: 100, width: 20, height: 180 }
+                ],
+                bgColor: '#2e1a2e'
+            },
+            
+            8: {
+                name: "PRECISION CHALLENGE",
+                description: "Every move counts",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 0, dashes: 1, teleports: 0, wallbounces: 1 },
+                optimalMoves: 6,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 300, y: 400, width: 60, height: 20 },
+                    { x: 500, y: 300, width: 60, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 180, y: 350, width: 180, height: 120, type: 'fire' },
+                    { x: 380, y: 250, width: 180, height: 100, type: 'ice' },
+                    { x: 580, y: 150, width: 100, height: 100, type: 'electric' }
+                ],
+                vibes: [
+                    { x: 270, y: 250, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 470, y: 150, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 540, y: 270, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 630, y: 100, type: 'wallbounce', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 250, start: 200, end: 360 },
+                    { type: 'vertical', x: 470, start: 150, end: 300 }
+                ],
+                trees: [
+                    { x: 330, y: 200, size: 25 },
+                    { x: 470, y: 150, size: 25 },
+                    { x: 700, y: 90, size: 25 }
+                ],
+                walls: [
+                    { x: 470, y: 200, width: 20, height: 100 },
+                    { x: 630, y: 100, width: 20, height: 150 }
+                ],
+                bgColor: '#1a1a2e'
+            },
+            
+            9: {
+                name: "GAUNTLET FINALE",
+                description: "Master all techniques",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 1, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 8,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 180, y: 480, width: 120, height: 70, type: 'fire' },
+                    { x: 320, y: 380, width: 120, height: 70, type: 'electric' },
+                    { x: 460, y: 280, width: 120, height: 70, type: 'ice' },
+                    { x: 300, y: 150, width: 250, height: 80, type: 'deadly' },
+                    { x: 580, y: 200, width: 80, height: 150, type: 'fire' }
+                ],
+                vibes: [
+                    { x: 200, y: 430, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 380, y: 330, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 520, y: 230, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 400, y: 100, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 550, y: 150, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 450, start: 150, end: 300 },
+                    { type: 'horizontal', y: 350, start: 290, end: 440 },
+                    { type: 'horizontal', y: 250, start: 430, end: 580 },
+                    { type: 'vertical', x: 400, start: 100, end: 150 },
+                    { type: 'horizontal', y: 150, start: 550, end: 650 }
+                ],
+                trees: [
+                    { x: 240, y: 380, size: 25 },
+                    { x: 380, y: 280, size: 25 },
+                    { x: 400, y: 100, size: 25 },
+                    { x: 700, y: 90, size: 25 }
+                ],
+                walls: [
+                    { x: 400, y: 100, width: 20, height: 50 },
+                    { x: 520, y: 200, width: 20, height: 80 }
+                ],
+                bgColor: '#2e1a1a'
+            },
+            
+            10: {
+                name: "MASTER ECONOMIST",
+                description: "The ultimate test",
+                spawn: { x: 100, y: 500 },
+                goal: { x: 700, y: 50, width: 40, height: 40 },
+                startingActions: { jumps: 0, dashes: 0, teleports: 0, wallbounces: 0 },
+                optimalMoves: 10,
+                platforms: [
+                    { x: 50, y: 550, width: 100, height: 20 },
+                    { x: 200, y: 450, width: 60, height: 20 },
+                    { x: 340, y: 350, width: 60, height: 20 },
+                    { x: 480, y: 250, width: 60, height: 20 },
+                    { x: 620, y: 150, width: 60, height: 20 },
+                    { x: 650, y: 90, width: 100, height: 80 }
+                ],
+                hazards: [
+                    { x: 150, y: 400, width: 110, height: 100, type: 'fire' },
+                    { x: 280, y: 300, width: 120, height: 100, type: 'electric' },
+                    { x: 420, y: 200, width: 120, height: 100, type: 'ice' },
+                    { x: 560, y: 100, width: 120, height: 100, type: 'deadly' },
+                    { x: 300, y: 100, width: 80, height: 50, type: 'fire' }
+                ],
+                vibes: [
+                    { x: 150, y: 350, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 230, y: 420, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 370, y: 320, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 510, y: 220, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 340, y: 75, type: 'dash', collected: false, size: 12, pulse: 0 },
+                    { x: 480, y: 150, type: 'jump', collected: false, size: 12, pulse: 0 },
+                    { x: 650, y: 120, type: 'teleport', collected: false, size: 12, pulse: 0 },
+                    { x: 700, y: 60, type: 'jump', collected: false, size: 12, pulse: 0 }
+                ],
+                grids: [
+                    { type: 'horizontal', y: 350, start: 150, end: 260 },
+                    { type: 'horizontal', y: 250, start: 280, end: 400 },
+                    { type: 'horizontal', y: 150, start: 420, end: 540 },
+                    { type: 'horizontal', y: 75, start: 300, end: 380 },
+                    { type: 'vertical', x: 340, start: 75, end: 150 }
+                ],
+                trees: [
+                    { x: 200, y: 350, size: 25 },
+                    { x: 370, y: 250, size: 25 },
+                    { x: 340, y: 75, size: 25 },
+                    { x: 650, y: 120, size: 25 },
+                    { x: 700, y: 90, size: 25 }
+                ],
+                walls: [
+                    { x: 340, y: 150, width: 20, height: 100 },
+                    { x: 510, y: 150, width: 20, height: 100 }
+                ],
+                bgColor: '#2e2e2e'
+            }
+        };
+        
+        // Input handling
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            
+            if (e.key.toLowerCase() === 'r') {
+                resetLevel();
+            }
+            if (e.key.toLowerCase() === 'e') {
+                tryTreeTeleport();
+            }
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (player.onWall) {
+                    tryWallBounce();
+                } else if (player.grounded) {
+                    tryJump();
+                }
+            }
+            if (keys['w'] || keys['arrowup']) {
+                if (player.onWall) {
+                    tryWallBounce();
+                } else if (player.grounded) {
+                    tryJump();
+                }
+            }
+            if (keys['shift']) {
+                tryGridDash();
+            }
+            if (keys['n'] && currentLevel < 10) {
+                // Cheat: next level for testing
+                currentLevel++;
+                loadLevel(currentLevel);
+            }
+            if (keys['p'] && currentLevel > 1) {
+                // Cheat: previous level for testing
+                currentLevel--;
+                loadLevel(currentLevel);
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+        
+        function flashUI(className) {
+            const element = document.querySelector('.' + className);
+            if (element) {
+                element.classList.add('pulsing');
+                setTimeout(() => element.classList.remove('pulsing'), 600);
+            }
+        }
+        
+        function tryJump() {
+            if (actions.jumps <= 0 || !player.grounded) return;
+            
+            actions.jumps--;
+            totalMoves++;
+            player.vy = -12;
+            player.grounded = false;
+            
+            for (let i = 0; i < 8; i++) {
+                particles.push({
+                    x: player.x + player.size/2, 
+                    y: player.y + player.size,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: Math.random() * 3 + 1,
+                    life: 30, 
+                    color: '#ffffff',
+                    size: Math.random() * 3 + 1
+                });
+            }
+            
+            flashUI('jump-counter');
+            updateUI();
+        }
+        
+        function tryGridDash() {
+            if (actions.dashes <= 0) return;
+            
+            const level = getCurrentLevel();
+            let dashDirection = null;
+            
+            level.grids.forEach(grid => {
+                if (grid.type === 'horizontal') {
+                    if (Math.abs(player.y - grid.y) < 30 && 
+                        player.x >= grid.start - 20 && 
+                        player.x <= grid.end + 20) {
+                        if (keys['a'] || keys['arrowleft']) dashDirection = { x: -1, y: 0, line: grid };
+                        else if (keys['d'] || keys['arrowright']) dashDirection = { x: 1, y: 0, line: grid };
+                    }
+                } else if (grid.type === 'vertical') {
+                    if (Math.abs(player.x - grid.x) < 30 && 
+                        player.y >= grid.start - 20 && 
+                        player.y <= grid.end + 20) {
+                        if (keys['w'] || keys['arrowup']) dashDirection = { x: 0, y: -1, line: grid };
+                        else if (keys['s'] || keys['arrowdown']) dashDirection = { x: 0, y: 1, line: grid };
+                    }
+                }
+            });
+            
+            if (dashDirection) {
+                actions.dashes--;
+                totalMoves++;
+                
+                if (dashDirection.line.type === 'horizontal') {
+                    player.y = dashDirection.line.y;
+                } else {
+                    player.x = dashDirection.line.x;
+                }
+                
+                player.vx = dashDirection.x * 15;
+                player.vy = dashDirection.y * 15;
+                player.state = 'dashing';
+                
+                for (let i = 0; i < 15; i++) {
+                    particles.push({
+                        x: player.x, y: player.y,
+                        vx: -dashDirection.x * 8 + (Math.random() - 0.5) * 4,
+                        vy: -dashDirection.y * 8 + (Math.random() - 0.5) * 4,
+                        life: 25, 
+                        color: '#ff00ff',
+                        size: Math.random() * 4 + 2
+                    });
+                }
+                
+                setTimeout(() => { 
+                    if (player.state === 'dashing') {
+                        player.state = 'normal'; 
+                    }
+                }, 200);
+                flashUI('dash-counter');
+                updateUI();
+            }
+        }
+        
+        function tryTreeTeleport() {
+            if (actions.teleports <= 0) return;
+            
+            const level = getCurrentLevel();
+            const nearTree = level.trees.find(tree => {
+                const dx = player.x - tree.x;
+                const dy = player.y - tree.y;
+                return Math.sqrt(dx * dx + dy * dy) < tree.size + 30;
+            });
+            
+            if (nearTree) {
+                const otherTrees = level.trees.filter(t => t !== nearTree);
+                if (otherTrees.length > 0) {
+                    actions.teleports--;
+                    totalMoves++;
+                    
+                    const target = otherTrees[Math.floor(Math.random() * otherTrees.length)];
+                    player.x = target.x;
+                    player.y = target.y - player.size;
+                    player.vx = 0;
+                    player.vy = 0;
+                    player.state = 'just_teleported';
+                    
+                    for (let i = 0; i < 20; i++) {
+                        particles.push({
+                            x: player.x, y: player.y,
+                            vx: (Math.random() - 0.5) * 10,
+                            vy: (Math.random() - 0.5) * 10,
+                            life: 40, 
+                            color: '#00ff00',
+                            size: Math.random() * 5 + 2
+                        });
+                    }
+                    
+                    setTimeout(() => { 
+                        if (player.state === 'just_teleported') {
+                            player.state = 'normal'; 
+                        }
+                    }, 300);
+                    
+                    flashUI('teleport-counter');
+                    updateUI();
+                }
+            }
+        }
+        
+        function tryWallBounce() {
+            if (actions.wallbounces <= 0 || !player.onWall) return;
+            
+            actions.wallbounces--;
+            totalMoves++;
+            
+            const bounceForce = 12;
+            if (player.wallSide === 'left') {
+                player.vx = bounceForce;
+                player.facing = 1;
+            } else if (player.wallSide === 'right') {
+                player.vx = -bounceForce;
+                player.facing = -1;
+            }
+            player.vy = -bounceForce;
+            player.state = 'just_bounced';
+            
+            for (let i = 0; i < 12; i++) {
+                particles.push({
+                    x: player.x, y: player.y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30, 
+                    color: '#00ffff',
+                    size: Math.random() * 4 + 1
+                });
+            }
+            
+            setTimeout(() => { 
+                if (player.state === 'just_bounced') {
+                    player.state = 'normal'; 
+                }
+            }, 300);
+            
+            flashUI('wallbounce-counter');
+            updateUI();
+        }
+        
+        function collectVibe(vibe) {
+            vibe.collected = true;
+            
+            switch(vibe.type) {
+                case 'jump':
+                    actions.jumps++;
+                    flashUI('jump-counter');
+                    break;
+                case 'dash':
+                    actions.dashes++;
+                    flashUI('dash-counter');
+                    break;
+                case 'teleport':
+                    actions.teleports++;
+                    flashUI('teleport-counter');
+                    break;
+                case 'wallbounce':
+                    actions.wallbounces++;
+                    flashUI('wallbounce-counter');
+                    break;
+            }
+            
+            const colors = {
+                jump: '#ffffff',
+                dash: '#ff00ff', 
+                teleport: '#00ff00',
+                wallbounce: '#00ffff'
+            };
+            
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: vibe.x, y: vibe.y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    life: 50, 
+                    color: colors[vibe.type],
+                    size: Math.random() * 6 + 2
+                });
+            }
+            
+            updateUI();
+        }
+        
+        function getCurrentLevel() {
+            return levels[currentLevel] || levels[1];
+        }
+        
+        function loadLevel(levelNum) {
+            const level = levels[levelNum];
+            if (!level) return;
+            
+            player.x = level.spawn.x;
+            player.y = level.spawn.y;
+            player.startX = level.spawn.x;
+            player.startY = level.spawn.y;
+            player.vx = 0;
+            player.vy = 0;
+            player.state = 'normal';
+            player.facing = 1;
+            
+            actions = { ...level.startingActions };
+            startingActions = { ...level.startingActions };
+            totalMoves = 0;
+            
+            level.vibes.forEach(vibe => vibe.collected = false);
+            
+            particles = [];
+            updateUI();
+        }
+        
+        function resetLevel() {
+            deathCount++;
+            loadLevel(currentLevel);
+            
+            for (let i = 0; i < 30; i++) {
+                particles.push({
+                    x: player.x, y: player.y,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    life: 50, 
+                    color: '#ff0000',
+                    size: Math.random() * 8 + 3
+                });
+            }
+        }
+        
+        function nextLevel() {
+            // Record best performance
+            const levelKey = `level_${currentLevel}`;
+            if (!levelStats[levelKey] || totalMoves < levelStats[levelKey]) {
+                levelStats[levelKey] = totalMoves;
+            }
+            
+            if (levels[currentLevel + 1]) {
+                currentLevel++;
+                loadLevel(currentLevel);
+                
+                for (let i = 0; i < 50; i++) {
+                    particles.push({
+                        x: player.x, y: player.y,
+                        vx: (Math.random() - 0.5) * 20,
+                        vy: (Math.random() - 0.5) * 20,
+                        life: 80, 
+                        color: '#ffff00',
+                        size: Math.random() * 10 + 4
+                    });
+                }
+            } else {
+                showGameComplete();
+            }
+        }
+        
+        function showGameComplete() {
+            const completeDiv = document.createElement('div');
+            completeDiv.className = 'level-complete';
+            completeDiv.innerHTML = `
+                <div>🎉 GAME COMPLETE! 🎉</div>
+                <div style="margin-top: 10px; font-size: 6px;">
+                    MASTER ECONOMIST ACHIEVED!<br>
+                    TOTAL DEATHS: ${deathCount}<br>
+                    Press R to play again
+                </div>
+            `;
+            document.getElementById('gameContainer').appendChild(completeDiv);
+            
+            setTimeout(() => completeDiv.remove(), 5000);
+        }
+        
+        function updateUI() {
+            document.getElementById('currentLevel').textContent = currentLevel;
+            document.getElementById('levelName').textContent = getCurrentLevel().name;
+            document.getElementById('jumpCount').textContent = actions.jumps;
+            document.getElementById('dashCount').textContent = actions.dashes;
+            document.getElementById('teleportCount').textContent = actions.teleports;
+            document.getElementById('wallbounceCount').textContent = actions.wallbounces;
+            document.getElementById('deathCount').textContent = deathCount;
+            
+            // Update best moves display
+            const levelKey = `level_${currentLevel}`;
+            const bestMoves = levelStats[levelKey] || getCurrentLevel().optimalMoves;
+            document.getElementById('bestMoves').textContent = bestMoves;
+            
+            // Update action counter styles based on availability
+            document.querySelector('.jump-counter').classList.toggle('depleted', actions.jumps === 0);
+            document.querySelector('.dash-counter').classList.toggle('depleted', actions.dashes === 0);
+            document.querySelector('.teleport-counter').classList.toggle('depleted', actions.teleports === 0);
+            document.querySelector('.wallbounce-counter').classList.toggle('depleted', actions.wallbounces === 0);
+        }
+        
+        function updatePlayer() {
+            const level = getCurrentLevel();
+            const gravity = 0.5;
+            const friction = 0.8;
+            const moveSpeed = 4;
+            
+            player.grounded = false;
+            player.onWall = false;
+            player.wallSide = null;
+            
+            // Platform collision
+            level.platforms.forEach(platform => {
+                if (player.x + player.size > platform.x && 
+                    player.x < platform.x + platform.width &&
+                    player.y + player.size > platform.y && 
+                    player.y + player.size < platform.y + platform.height + 10 &&
+                    player.vy >= 0) {
+                    player.y = platform.y - player.size;
+                    player.vy = 0;
+                    player.grounded = true;
+                }
+                
+                if (player.y + player.size > platform.y && 
+                    player.y < platform.y + platform.height) {
+                    if (player.x + player.size > platform.x && 
+                        player.x + player.size < platform.x + 10 &&
+                        player.vx > 0) {
+                        player.x = platform.x - player.size;
+                        player.vx = 0;
+                        player.onWall = true;
+                        player.wallSide = 'left';
+                    }
+                    if (player.x < platform.x + platform.width && 
+                        player.x > platform.x + platform.width - 10 &&
+                        player.vx < 0) {
+                        player.x = platform.x + platform.width;
+                        player.vx = 0;
+                        player.onWall = true;
+                        player.wallSide = 'right';
+                    }
+                }
+            });
+            
+            // Wall objects collision
+            level.walls.forEach(wall => {
+                if (player.y + player.size > wall.y && 
+                    player.y < wall.y + wall.height) {
+                    if (player.x + player.size > wall.x && 
+                        player.x + player.size < wall.x + 10 &&
+                        player.vx > 0) {
+                        player.x = wall.x - player.size;
+                        player.vx = 0;
+                        player.onWall = true;
+                        player.wallSide = 'left';
+                    }
+                    if (player.x < wall.x + wall.width && 
+                        player.x > wall.x + wall.width - 10 &&
+                        player.vx < 0) {
+                        player.x = wall.x + wall.width;
+                        player.vx = 0;
+                        player.onWall = true;
+                        player.wallSide = 'right';
+                    }
+                }
+            });
+            
+            // Movement
+            if (player.state !== 'dashing') {
+                if (keys['a'] || keys['arrowleft']) {
+                    player.vx = -moveSpeed;
+                    player.facing = -1;
+                } else if (keys['d'] || keys['arrowright']) {
+                    player.vx = moveSpeed;
+                    player.facing = 1;
+                } else {
+                    player.vx *= friction;
+                }
+                
+                if (!player.grounded && !player.onWall) {
+                    player.vy += gravity;
+                } else if (player.onWall && player.vy > 0) {
+                    player.vy *= 0.5;
+                }
+            }
+            
+            player.x += player.vx;
+            player.y += player.vy;
+            
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
+            
+            if (player.y > canvas.height) {
+                resetLevel();
+                return;
+            }
+            
+            // Enhanced hazard collision with special abilities
+            level.hazards.forEach(hazard => {
+                if (player.x + player.size > hazard.x && 
+                    player.x < hazard.x + hazard.width &&
+                    player.y + player.size > hazard.y && 
+                    player.y < hazard.y + hazard.height) {
+                    
+                    let canSurvive = false;
+                    
+                    switch(hazard.type || 'deadly') {
+                        case 'fire':
+                            if (player.state === 'dashing') canSurvive = true;
+                            break;
+                        case 'electric':
+                            if (player.state === 'just_teleported') canSurvive = true;
+                            break;
+                        case 'ice':
+                            if (player.state === 'just_bounced') canSurvive = true;
+                            break;
+                        default:
+                            canSurvive = false;
+                            break;
+                    }
+                    
+                    if (!canSurvive) {
+                        resetLevel();
+                        return;
+                    }
+                }
+            });
+            
+            // Vibe collection
+            level.vibes.forEach(vibe => {
+                if (!vibe.collected) {
+                    const dx = player.x - vibe.x;
+                    const dy = player.y - vibe.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < player.size + vibe.size) {
+                        collectVibe(vibe);
+                    }
+                }
+                vibe.pulse += 0.15;
+            });
+            
+            // Goal collision
+            const goal = level.goal;
+            if (player.x + player.size > goal.x && 
+                player.x < goal.x + goal.width &&
+                player.y + player.size > goal.y && 
+                player.y < goal.y + goal.height) {
+                nextLevel();
+                return;
+            }
+            
+            player.animFrame += 0.2;
+        }
+        
+        function update() {
+            time += 0.02;
+            updatePlayer();
+            
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+                return p.life > 0;
+            });
+        }
+        
+        function render() {
+            const level = getCurrentLevel();
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Enhanced background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, level.bgColor || '#1a1a2e');
+            gradient.addColorStop(1, '#0f0f23');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Subtle grid pattern
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            for (let x = 0; x < canvas.width; x += 32) {
+                for (let y = 0; y < canvas.height; y += 32) {
+                    if ((x + y) % 64 === 0) {
+                        ctx.fillRect(x, y, 1, 1);
+                    }
+                }
+            }
+            
+            // Enhanced platforms
+            level.platforms.forEach(platform => {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(platform.x + 2, platform.y + 2, platform.width, platform.height);
+                
+                ctx.fillStyle = '#555';
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                
+                ctx.fillStyle = '#777';
+                ctx.fillRect(platform.x, platform.y, platform.width, 4);
+                
+                ctx.fillStyle = '#333';
+                ctx.fillRect(platform.x, platform.y + platform.height - 2, platform.width, 2);
+            });
+            
+            // Enhanced hazards with different types
+            level.hazards.forEach(hazard => {
+                const pulse = Math.sin(time * 8) * 0.1 + 0.9;
+                
+                switch(hazard.type || 'deadly') {
+                    case 'fire':
+                        ctx.fillStyle = `rgba(255, 100, 0, ${pulse})`;
+                        ctx.fillRect(hazard.x, hazard.y, hazard.width, hazard.height);
+                        
+                        ctx.fillStyle = '#ff6600';
+                        for (let x = hazard.x; x < hazard.x + hazard.width; x += 12) {
+                            for (let y = hazard.y; y < hazard.y + hazard.height; y += 8) {
+                                if (Math.random() > 0.7) {
+                                    ctx.fillRect(x + Math.random() * 4, y + Math.random() * 4, 2, 4);
+                                }
+                            }
+                        }
+                        
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '16px Press Start 2P';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('🔥', hazard.x + hazard.width/2, hazard.y + hazard.height/2 + 6);
+                        break;
+                        
+                    case 'electric':
+                        ctx.fillStyle = `rgba(255, 255, 0, ${pulse})`;
+                        ctx.fillRect(hazard.x, hazard.y, hazard.width, hazard.height);
+                        
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${pulse})`;
+                        ctx.lineWidth = 2;
+                        for (let i = 0; i < 5; i++) {
+                            const x1 = hazard.x + Math.random() * hazard.width;
+                            const y1 = hazard.y + Math.random() * hazard.height;
+                            const x2 = hazard.x + Math.random() * hazard.width;
+                            const y2 = hazard.y + Math.random() * hazard.height;
+                            ctx.beginPath();
+                            ctx.moveTo(x1, y1);
+                            ctx.lineTo(x2, y2);
+                            ctx.stroke();
+                        }
+                        
+                        ctx.fillStyle = '#000000';
+                        ctx.font = '16px Press Start 2P';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('⚡', hazard.x + hazard.width/2, hazard.y + hazard.height/2 + 6);
+                        break;
+                        
+                    case 'ice':
+                        ctx.fillStyle = `rgba(0, 255, 255, ${pulse * 0.7})`;
+                        ctx.fillRect(hazard.x, hazard.y, hazard.width, hazard.height);
+                        
+                        ctx.fillStyle = '#00ccff';
+                        for (let x = hazard.x; x < hazard.x + hazard.width; x += 16) {
+                            for (let y = hazard.y; y < hazard.y + hazard.height; y += 16) {
+                                ctx.fillRect(x, y, 8, 2);
+                                ctx.fillRect(x, y, 2, 8);
+                            }
+                        }
+                        
+                        ctx.fillStyle = '#003366';
+                        ctx.font = '16px Press Start 2P';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('❄', hazard.x + hazard.width/2, hazard.y + hazard.height/2 + 6);
+                        break;
+                        
+                    default:
+                        ctx.fillStyle = `rgba(255, 68, 68, ${pulse})`;
+                        ctx.fillRect(hazard.x, hazard.y, hazard.width, hazard.height);
+                        
+                        ctx.fillStyle = '#ff0000';
+                        for (let x = hazard.x; x < hazard.x + hazard.width; x += 16) {
+                            for (let y = hazard.y; y < hazard.y + hazard.height; y += 16) {
+                                if ((x + y) % 32 === 0) {
+                                    ctx.fillRect(x, y, 2, 2);
+                                }
+                            }
+                        }
+                        
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '16px Press Start 2P';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('💀', hazard.x + hazard.width/2, hazard.y + hazard.height/2 + 6);
+                        break;
+                }
+            });
+            
+            // Grid lines
+            ctx.strokeStyle = '#ff00ff';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 10;
+            level.grids.forEach(grid => {
+                ctx.beginPath();
+                if (grid.type === 'horizontal') {
+                    ctx.moveTo(grid.start, grid.y);
+                    ctx.lineTo(grid.end, grid.y);
+                } else {
+                    ctx.moveTo(grid.x, grid.start);
+                    ctx.lineTo(grid.x, grid.end);
+                }
+                ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+            
+            // Trees
+            level.trees.forEach(tree => {
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(tree.x - 4, tree.y, 8, tree.size);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.shadowColor = '#00ff00';
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.arc(tree.x, tree.y - tree.size * 0.3, tree.size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                ctx.fillStyle = '#00cc00';
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i / 5) * Math.PI * 2;
+                    const px = tree.x + Math.cos(angle) * tree.size * 0.5;
+                    const py = tree.y - tree.size * 0.3 + Math.sin(angle) * tree.size * 0.5;
+                    ctx.fillRect(px, py, 2, 2);
+                }
+            });
+            
+            // Walls
+            level.walls.forEach(wall => {
+                ctx.fillStyle = '#00ffff';
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.shadowBlur = 0;
+                
+                ctx.fillStyle = '#00cccc';
+                for (let y = wall.y; y < wall.y + wall.height; y += 8) {
+                    ctx.fillRect(wall.x, y, wall.width, 2);
+                }
+            });
+            
+            // Vibes
+            const vibeColors = {
+                jump: '#ffffff',
+                dash: '#ff00ff',
+                teleport: '#00ff00', 
+                wallbounce: '#00ffff'
+            };
+            
+            level.vibes.forEach(vibe => {
+                if (!vibe.collected) {
+                    const pulseSize = vibe.size + Math.sin(vibe.pulse) * 4;
+                    const glowIntensity = Math.sin(vibe.pulse * 2) * 0.3 + 0.7;
+                    
+                    ctx.fillStyle = vibeColors[vibe.type];
+                    ctx.shadowColor = vibeColors[vibe.type];
+                    ctx.shadowBlur = 20 * glowIntensity;
+                    ctx.beginPath();
+                    ctx.arc(vibe.x, vibe.y, pulseSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    
+                    ctx.fillStyle = '#000';
+                    ctx.font = '12px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    const symbols = { jump: '↑', dash: '→', teleport: '⚡', wallbounce: '↗' };
+                    ctx.fillText(symbols[vibe.type], vibe.x, vibe.y + 4);
+                    
+                    for (let i = 0; i < 3; i++) {
+                        const angle = vibe.pulse + (i * Math.PI * 2 / 3);
+                        const orbit = pulseSize + 10;
+                        const px = vibe.x + Math.cos(angle) * orbit;
+                        const py = vibe.y + Math.sin(angle) * orbit;
+                        
+                        ctx.fillStyle = vibeColors[vibe.type];
+                        ctx.globalAlpha = 0.6;
+                        ctx.fillRect(px - 1, py - 1, 2, 2);
+                        ctx.globalAlpha = 1;
+                    }
+                }
+            });
+            
+            // Goal
+            const goal = level.goal;
+            
+            ctx.fillStyle = '#ffff00';
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 15;
+            ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
+            ctx.shadowBlur = 0;
+            
+            ctx.fillStyle = '#ffcc00';
+            ctx.fillRect(goal.x, goal.y, goal.width, 8);
+            ctx.fillRect(goal.x, goal.y + goal.height - 8, goal.width, 8);
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(goal.x + 8, goal.y + 12, 6, 8);
+            ctx.fillRect(goal.x + goal.width - 14, goal.y + 12, 6, 8);
+            
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(goal.x + goal.width/2 - 8, goal.y - 12, 16, 8);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(goal.x + goal.width/2 - 1, goal.y - 4, 2, 12);
+            
+            // Player
+            ctx.save();
+            ctx.translate(player.x + player.size/2, player.y + player.size/2);
+            ctx.scale(player.facing, 1);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+            ctx.shadowBlur = 0;
+            
+            // Player state colors
+            let playerColor = '#4444ff';
+            if (player.state === 'dashing') playerColor = '#ff00ff';
+            else if (player.state === 'just_teleported') playerColor = '#00ff00';
+            else if (player.state === 'just_bounced') playerColor = '#00ffff';
+            
+            ctx.fillStyle = playerColor;
+            ctx.fillRect(-6, -6, 12, 12);
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(-2, -4, 1, 1);
+            ctx.fillRect(1, -4, 1, 1);
+            
+            if (player.state === 'dashing') {
+                ctx.fillStyle = '#ff00ff';
+                for (let i = 0; i < 3; i++) {
+                    ctx.fillRect(-8 - i * 3, -2, 2, 4);
+                }
+            }
+            
+            ctx.restore();
+            
+            // Particles
+            particles.forEach(p => {
+                const alpha = p.life / 50;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = p.color;
+                
+                if (p.size) {
+                    ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                } else {
+                    ctx.fillRect(p.x, p.y, 2, 2);
+                }
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize
+        loadLevel(1);
+        updateUI();
+        gameLoop();
+        
+        console.log("🎮 Use N/P to skip levels during testing");
+        console.log("🎯 10 levels of pure action economy puzzles await!");
+    </script>
+</body>
+</html>
