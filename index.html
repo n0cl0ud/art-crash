@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT=DASH • E=WARP • R=RESET
+            WASD=MOVE • SPACE=JUMP/BOUNCE • SHIFT+DIR=DASH • E=WARP • R=RESET
         </div>
         
         <div class="speed-control">
@@ -355,7 +355,8 @@
                     { x: 350, y: 400, width: 200, height: 50, type: 'fire' }
                 ],
                 vibes: [
-                    { x: 350, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    // FIXED: Moved vibe away from fire danger
+                    { x: 250, y: 420, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [
                     { type: 'horizontal', y: 375, start: 400, end: 600 }
@@ -406,8 +407,9 @@
                     { x: 250, y: 450, width: 300, height: 60, type: 'ice' }
                 ],
                 vibes: [
-                    { x: 320, y: 400, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 480, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    // FIXED: Moved vibes away from ice danger - much safer positions
+                    { x: 200, y: 400, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 400, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
                     { x: 675, y: 210, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [],
@@ -656,7 +658,8 @@
             lastJumpTime = now;
             actions.jumps--;
             totalMoves++;
-            player.vy = -12 * gameSpeed;
+            // FIXED: Jump force should NOT be affected by speed (prevents cheating)
+            player.vy = -12; // Constant jump force regardless of speed
             player.grounded = false;
             
             for (let i = 0; i < 8; i++) {
@@ -680,22 +683,39 @@
             
             const level = getCurrentLevel();
             let dashDirection = null;
+            let closestGrid = null;
+            let closestDistance = Infinity;
             
+            // IMPROVED: More forgiving grid detection - find closest grid
             level.grids.forEach(grid => {
+                let distance = Infinity;
+                let direction = null;
+                
                 if (grid.type === 'horizontal') {
-                    if (Math.abs(player.y - grid.y) < 30 && 
-                        player.x >= grid.start - 20 && 
-                        player.x <= grid.end + 20) {
-                        if (keys['a'] || keys['arrowleft']) dashDirection = { x: -1, y: 0, line: grid };
-                        else if (keys['d'] || keys['arrowright']) dashDirection = { x: 1, y: 0, line: grid };
+                    distance = Math.abs(player.y - grid.y);
+                    // Much more forgiving range - 50 pixels instead of 30
+                    if (distance < 50 && 
+                        player.x >= grid.start - 50 && 
+                        player.x <= grid.end + 50) {
+                        if (keys['a'] || keys['arrowleft']) direction = { x: -1, y: 0, line: grid };
+                        else if (keys['d'] || keys['arrowright']) direction = { x: 1, y: 0, line: grid };
                     }
                 } else if (grid.type === 'vertical') {
-                    if (Math.abs(player.x - grid.x) < 30 && 
-                        player.y >= grid.start - 20 && 
-                        player.y <= grid.end + 20) {
-                        if (keys['w'] || keys['arrowup']) dashDirection = { x: 0, y: -1, line: grid };
-                        else if (keys['s'] || keys['arrowdown']) dashDirection = { x: 0, y: 1, line: grid };
+                    distance = Math.abs(player.x - grid.x);
+                    // Much more forgiving range
+                    if (distance < 50 && 
+                        player.y >= grid.start - 50 && 
+                        player.y <= grid.end + 50) {
+                        if (keys['w'] || keys['arrowup']) direction = { x: 0, y: -1, line: grid };
+                        else if (keys['s'] || keys['arrowdown']) direction = { x: 0, y: 1, line: grid };
                     }
+                }
+                
+                // Choose the closest grid if multiple are available
+                if (direction && distance < closestDistance) {
+                    closestDistance = distance;
+                    dashDirection = direction;
+                    closestGrid = grid;
                 }
             });
             
@@ -703,21 +723,23 @@
                 actions.dashes--;
                 totalMoves++;
                 
+                // Auto-snap to grid line (more forgiving)
                 if (dashDirection.line.type === 'horizontal') {
                     player.y = dashDirection.line.y;
                 } else {
                     player.x = dashDirection.line.x;
                 }
                 
-                player.vx = dashDirection.x * 15 * gameSpeed;
-                player.vy = dashDirection.y * 15 * gameSpeed;
+                // FIXED: Dash speed should NOT be affected by speed multiplier (prevents cheating)
+                player.vx = dashDirection.x * 15; // Constant dash speed
+                player.vy = dashDirection.y * 15;
                 player.state = 'dashing';
                 
                 for (let i = 0; i < 15; i++) {
                     particles.push({
                         x: player.x, y: player.y,
-                        vx: -dashDirection.x * 8 * gameSpeed + (Math.random() - 0.5) * 4,
-                        vy: -dashDirection.y * 8 * gameSpeed + (Math.random() - 0.5) * 4,
+                        vx: -dashDirection.x * 8 + (Math.random() - 0.5) * 4,
+                        vy: -dashDirection.y * 8 + (Math.random() - 0.5) * 4,
                         life: 25, 
                         color: '#ff00ff',
                         size: Math.random() * 4 + 2
@@ -731,6 +753,11 @@
                 }, 200 / gameSpeed);
                 flashUI('dash-counter');
                 updateUI();
+                
+                console.log(`💫 Dashed ${dashDirection.x > 0 ? 'right' : dashDirection.x < 0 ? 'left' : dashDirection.y > 0 ? 'down' : 'up'} on grid!`);
+            } else {
+                // Visual feedback when no grid available
+                console.log("❌ No dash grid in range! Get closer to purple lines.");
             }
         }
         
@@ -738,10 +765,11 @@
             if (actions.teleports <= 0) return;
             
             const level = getCurrentLevel();
+            // IMPROVED: More forgiving teleport range
             const nearTree = level.trees.find(tree => {
-                const dx = player.x - tree.x;
-                const dy = player.y - tree.y;
-                return Math.sqrt(dx * dx + dy * dy) < tree.size + 30;
+                const dx = player.x + player.size/2 - tree.x;
+                const dy = player.y + player.size/2 - tree.y;
+                return Math.sqrt(dx * dx + dy * dy) < tree.size + 40; // Increased range
             });
             
             if (nearTree) {
@@ -751,7 +779,7 @@
                     totalMoves++;
                     
                     const target = otherTrees[Math.floor(Math.random() * otherTrees.length)];
-                    player.x = target.x;
+                    player.x = target.x - player.size/2;
                     player.y = target.y - player.size;
                     player.vx = 0;
                     player.vy = 0;
@@ -776,7 +804,13 @@
                     
                     flashUI('teleport-counter');
                     updateUI();
+                    
+                    console.log("⚡ Teleported between trees!");
+                } else {
+                    console.log("❌ No other trees to teleport to!");
                 }
+            } else {
+                console.log("❌ Not close enough to a tree! Get within the green glow.");
             }
         }
         
@@ -786,7 +820,8 @@
             actions.wallbounces--;
             totalMoves++;
             
-            const bounceForce = 12 * gameSpeed;
+            // FIXED: Wall bounce force should NOT be affected by speed (prevents cheating)
+            const bounceForce = 12; // Constant force regardless of speed
             if (player.wallSide === 'left') {
                 player.vx = bounceForce;
                 player.facing = 1;
@@ -1118,14 +1153,15 @@
                 }
             });
             
-            // Vibe collection
+            // Vibe collection - improved detection range
             level.vibes.forEach(vibe => {
                 if (!vibe.collected) {
-                    const dx = player.x - vibe.x;
-                    const dy = player.y - vibe.y;
+                    const dx = player.x + player.size/2 - vibe.x; // Center to center
+                    const dy = player.y + player.size/2 - vibe.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    if (distance < player.size + vibe.size) {
+                    // IMPROVED: Much larger collection radius - more forgiving
+                    if (distance < player.size + vibe.size + 10) {
                         collectVibe(vibe);
                     }
                 }
@@ -1372,12 +1408,44 @@
                 }
             });
             
-            // Grid lines
+            // Grid lines with improved visibility
             ctx.strokeStyle = '#ff00ff';
             ctx.lineWidth = 3;
             ctx.shadowColor = '#ff00ff';
             ctx.shadowBlur = 10;
             level.grids.forEach(grid => {
+                // Check if player is in dash range for this grid
+                let inRange = false;
+                if (grid.type === 'horizontal') {
+                    if (Math.abs(player.y - grid.y) < 50 && 
+                        player.x >= grid.start - 50 && 
+                        player.x <= grid.end + 50) {
+                        inRange = true;
+                    }
+                } else if (grid.type === 'vertical') {
+                    if (Math.abs(player.x - grid.x) < 50 && 
+                        player.y >= grid.start - 50 && 
+                        player.y <= grid.end + 50) {
+                        inRange = true;
+                    }
+                }
+                
+                // Enhanced visual when in range
+                if (inRange && actions.dashes > 0) {
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.lineWidth = 5;
+                    ctx.shadowBlur = 20;
+                    
+                    // Pulsing effect
+                    const pulse = Math.sin(time * 10) * 0.3 + 0.7;
+                    ctx.globalAlpha = pulse;
+                } else {
+                    ctx.strokeStyle = '#ff00ff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowBlur = 10;
+                    ctx.globalAlpha = 1;
+                }
+                
                 ctx.beginPath();
                 if (grid.type === 'horizontal') {
                     ctx.moveTo(grid.start, grid.y);
@@ -1387,22 +1455,62 @@
                     ctx.lineTo(grid.x, grid.end);
                 }
                 ctx.stroke();
+                
+                // Show direction arrows when in range
+                if (inRange && actions.dashes > 0) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = '16px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    
+                    if (grid.type === 'horizontal') {
+                        // Show left/right arrows
+                        ctx.fillText('← SHIFT+A    SHIFT+D →', grid.start + (grid.end - grid.start)/2, grid.y - 20);
+                    } else {
+                        // Show up/down arrows
+                        ctx.save();
+                        ctx.translate(grid.x, grid.start + (grid.end - grid.start)/2);
+                        ctx.rotate(-Math.PI/2);
+                        ctx.fillText('↑ SHIFT+W    SHIFT+S ↓', 0, -20);
+                        ctx.restore();
+                    }
+                }
             });
             ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
             
-            // Trees
+            // Enhanced trees with teleport range indicator
             level.trees.forEach(tree => {
+                // Check if player is in teleport range
+                const dx = player.x + player.size/2 - tree.x;
+                const dy = player.y + player.size/2 - tree.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const inRange = distance < tree.size + 40;
+                
+                // Show range indicator when close
+                if (inRange && actions.teleports > 0) {
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.arc(tree.x, tree.y - tree.size * 0.3, tree.size + 40, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                
+                // Tree trunk
                 ctx.fillStyle = '#8B4513';
                 ctx.fillRect(tree.x - 4, tree.y, 8, tree.size);
                 
+                // Tree crown with enhanced glow when in range
                 ctx.fillStyle = '#00ff00';
                 ctx.shadowColor = '#00ff00';
-                ctx.shadowBlur = 15;
+                ctx.shadowBlur = inRange && actions.teleports > 0 ? 25 : 15;
                 ctx.beginPath();
                 ctx.arc(tree.x, tree.y - tree.size * 0.3, tree.size * 0.8, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.shadowBlur = 0;
                 
+                // Tree details
                 ctx.fillStyle = '#00cc00';
                 for (let i = 0; i < 5; i++) {
                     const angle = (i / 5) * Math.PI * 2;
@@ -1410,9 +1518,17 @@
                     const py = tree.y - tree.size * 0.3 + Math.sin(angle) * tree.size * 0.5;
                     ctx.fillRect(px, py, 2, 2);
                 }
+                
+                // Show teleport hint when in range
+                if (inRange && actions.teleports > 0) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '8px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('PRESS E', tree.x, tree.y - tree.size - 10);
+                }
             });
             
-            // Walls
+            // Enhanced walls with wall bounce indicators
             level.walls.forEach(wall => {
                 ctx.fillStyle = '#00ffff';
                 ctx.shadowColor = '#00ffff';
@@ -1423,6 +1539,38 @@
                 ctx.fillStyle = '#00cccc';
                 for (let y = wall.y; y < wall.y + wall.height; y += 8) {
                     ctx.fillRect(wall.x, y, wall.width, 2);
+                }
+                
+                // Show wall bounce hint when touching wall
+                if (player.onWall && actions.wallbounces > 0) {
+                    const isThisWall = (player.wallSide === 'left' && Math.abs(player.x + player.size - wall.x) < 15) ||
+                                     (player.wallSide === 'right' && Math.abs(player.x - (wall.x + wall.width)) < 15);
+                    
+                    if (isThisWall && 
+                        player.y + player.size > wall.y && 
+                        player.y < wall.y + wall.height) {
+                        
+                        ctx.fillStyle = '#ffffff';
+                        ctx.font = '8px Press Start 2P';
+                        ctx.textAlign = 'center';
+                        
+                        const hintX = wall.x + wall.width/2;
+                        const hintY = player.y - 10;
+                        
+                        ctx.fillText('PRESS SPACE', hintX, hintY);
+                        
+                        // Visual bounce indicator
+                        ctx.fillStyle = '#ffff00';
+                        ctx.shadowColor = '#ffff00';
+                        ctx.shadowBlur = 10;
+                        const bounceDirection = player.wallSide === 'left' ? 1 : -1;
+                        const arrowX = player.x + (bounceDirection * 20);
+                        const arrowY = player.y;
+                        
+                        // Draw bounce arrow
+                        ctx.fillText('↗', arrowX, arrowY);
+                        ctx.shadowBlur = 0;
+                    }
                 }
             });
             
