@@ -234,7 +234,7 @@
         </div>
         
         <div class="controls-hint">
-            WASD=MOVE • SPACE=JUMP • SHIFT=DASH(purple lines) • COMBOS: SHIFT→SPACE
+            MOVE=WASD • JUMP=SPACE • DASH=SHIFT(near yellow lines) • BOUNCE=SPACE(on cyan walls)
         </div>
         
         <div class="speed-control">
@@ -393,30 +393,33 @@
             },
             
             6: {
-                name: "WALL BOUNCE BASIC",
-                description: "Bounce off walls through ice",
+                name: "WALL BOUNCE TUTORIAL",
+                description: "Learn wall bouncing step by step",
                 spawn: { x: 100, y: 500 },
-                goal: { x: 650, y: 200, width: 40, height: 40 },
-                startingActions: { jumps: 2, dashes: 0, teleports: 0, wallbounces: 0 },
+                goal: { x: 650, y: 400, width: 40, height: 40 },
+                startingActions: { jumps: 3, dashes: 0, teleports: 0, wallbounces: 2 },
                 optimalMoves: 4,
                 platforms: [
                     { x: 50, y: 550, width: 150, height: 20 },
-                    { x: 600, y: 240, width: 150, height: 20 }
+                    { x: 300, y: 450, width: 100, height: 20 },
+                    { x: 500, y: 350, width: 100, height: 20 },
+                    { x: 600, y: 440, width: 150, height: 20 }
                 ],
                 hazards: [
-                    { x: 250, y: 450, width: 300, height: 60, type: 'ice' }
+                    // Much smaller ice barrier, easier to navigate
+                    { x: 350, y: 400, width: 200, height: 40, type: 'ice' }
                 ],
                 vibes: [
-                    // FIXED: Moved vibes away from ice danger - much safer positions
-                    { x: 200, y: 400, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 400, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
-                    { x: 675, y: 210, type: 'jump', collected: false, size: 12, pulse: 0 }
+                    // Better positioned vibes, away from danger
+                    { x: 200, y: 350, type: 'wallbounce', collected: false, size: 12, pulse: 0 },
+                    { x: 675, y: 410, type: 'jump', collected: false, size: 12, pulse: 0 }
                 ],
                 grids: [],
                 trees: [],
                 walls: [
-                    { x: 300, y: 300, width: 20, height: 150 },
-                    { x: 460, y: 250, width: 20, height: 200 }
+                    // Taller, easier to hit walls
+                    { x: 250, y: 200, width: 20, height: 250 },
+                    { x: 450, y: 150, width: 20, height: 300 }
                 ],
                 bgColor: '#1a2e2e'
             },
@@ -709,10 +712,10 @@
                 
                 if (grid.type === 'horizontal') {
                     distance = Math.abs(player.y - grid.y);
-                    // Much more forgiving range - 80 pixels!
-                    if (distance < 80 && 
-                        player.x >= grid.start - 80 && 
-                        player.x <= grid.end + 80) {
+                    // SUPER forgiving range - 120 pixels!
+                    if (distance < 120 && 
+                        player.x >= grid.start - 120 && 
+                        player.x <= grid.end + 120) {
                         
                         // SIMPLIFIED: Dash in direction you're facing, or use current movement
                         if (player.facing > 0 || keys['d'] || keys['arrowright']) {
@@ -726,10 +729,10 @@
                     }
                 } else if (grid.type === 'vertical') {
                     distance = Math.abs(player.x - grid.x);
-                    // Much more forgiving range
-                    if (distance < 80 && 
-                        player.y >= grid.start - 80 && 
-                        player.y <= grid.end + 80) {
+                    // SUPER forgiving range
+                    if (distance < 120 && 
+                        player.y >= grid.start - 120 && 
+                        player.y <= grid.end + 120) {
                         
                         // For vertical grids, prefer upward dash
                         if (keys['w'] || keys['arrowup']) {
@@ -868,8 +871,8 @@
             actions.wallbounces--;
             totalMoves++;
             
-            // FIXED: Wall bounce force should NOT be affected by speed (prevents cheating)
-            const bounceForce = 12; // Constant force regardless of speed
+            // ENHANCED: Better wall bounce mechanics
+            const bounceForce = 14; // Increased from 12 for better reach
             if (player.wallSide === 'left') {
                 player.vx = bounceForce;
                 player.facing = 1;
@@ -877,17 +880,18 @@
                 player.vx = -bounceForce;
                 player.facing = -1;
             }
-            player.vy = -bounceForce;
+            player.vy = -bounceForce; // Stronger upward force
             player.state = 'just_bounced';
             
-            for (let i = 0; i < 12; i++) {
+            // Enhanced bounce effect
+            for (let i = 0; i < 15; i++) {
                 particles.push({
                     x: player.x, y: player.y,
-                    vx: (Math.random() - 0.5) * 8 * gameSpeed,
-                    vy: (Math.random() - 0.5) * 8 * gameSpeed,
-                    life: 30, 
+                    vx: (Math.random() - 0.5) * 10 * gameSpeed,
+                    vy: (Math.random() - 0.5) * 10 * gameSpeed,
+                    life: 40, 
                     color: '#00ffff',
-                    size: Math.random() * 4 + 1
+                    size: Math.random() * 6 + 2
                 });
             }
             
@@ -895,10 +899,12 @@
                 if (player.state === 'just_bounced') {
                     player.state = 'normal'; 
                 }
-            }, 300 / gameSpeed);
+            }, 400); // Longer immunity time
             
             flashUI('wallbounce-counter');
             updateUI();
+            
+            console.log("🏀 Wall bounced with extra power!");
         }
         
         function collectVibe(vibe) {
@@ -1585,11 +1591,15 @@
                     
                     ctx.fillText(instructionText, instructionX, instructionY);
                     
-                    // SPECIAL: Show combo hint for dash+jump levels
+                    // SPECIAL: Show combo hint for specific levels
                     if (currentLevel === 3) {
                         ctx.fillStyle = '#00ff00';
                         ctx.font = '8px Press Start 2P';
-                        ctx.fillText('DASH TO END, SPACE WHILE PURPLE!', instructionX, instructionY + 20);
+                        ctx.fillText('DASH TO END, SPACE WHILE PURPLE!', instructionX, instructionY + 25);
+                    } else if (currentLevel === 6) {
+                        ctx.fillStyle = '#00ffff';
+                        ctx.font = '8px Press Start 2P';
+                        ctx.fillText('COLLECT BOUNCES FIRST!', instructionX, instructionY + 25);
                     }
                     
                 } else {
@@ -1663,49 +1673,98 @@
                 }
             });
             
-            // Enhanced walls with wall bounce indicators
+            // Enhanced walls with much better wall bounce indicators
             level.walls.forEach(wall => {
-                ctx.fillStyle = '#00ffff';
-                ctx.shadowColor = '#00ffff';
-                ctx.shadowBlur = 8;
-                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-                ctx.shadowBlur = 0;
+                // Check if player can wall bounce on this wall
+                const canBounceHere = player.onWall && actions.wallbounces > 0 &&
+                    ((player.wallSide === 'left' && Math.abs(player.x + player.size - wall.x) < 20) ||
+                     (player.wallSide === 'right' && Math.abs(player.x - (wall.x + wall.width)) < 20)) &&
+                    player.y + player.size > wall.y && 
+                    player.y < wall.y + wall.height;
                 
+                // Enhanced wall rendering when can bounce
+                if (canBounceHere) {
+                    // Super bright wall when can bounce
+                    ctx.fillStyle = '#00ffff';
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 25;
+                    
+                    // Pulsing effect
+                    const pulse = Math.sin(time * 20) * 0.3 + 0.7;
+                    ctx.globalAlpha = pulse;
+                    
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                    
+                    // Big bounce instruction
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '12px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.shadowColor = '#000000';
+                    ctx.shadowBlur = 5;
+                    
+                    const hintX = wall.x + wall.width/2;
+                    const hintY = player.y - 20;
+                    
+                    ctx.fillText('PRESS SPACE!', hintX, hintY);
+                    
+                    // Visual bounce preview arrow
+                    ctx.fillStyle = '#ffff00';
+                    ctx.shadowColor = '#ffff00';
+                    ctx.shadowBlur = 15;
+                    const bounceDirection = player.wallSide === 'left' ? 1 : -1;
+                    const arrowX = player.x + (bounceDirection * 30);
+                    const arrowY = player.y - 10;
+                    
+                    // Draw bigger bounce arrow
+                    ctx.font = '16px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('↗', arrowX, arrowY);
+                    ctx.shadowBlur = 0;
+                    
+                    // Show bounce range indicator
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    const bounceReach = 100;
+                    ctx.moveTo(player.x, player.y);
+                    ctx.lineTo(player.x + bounceDirection * bounceReach, player.y - bounceReach);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    
+                } else {
+                    // Normal wall appearance
+                    ctx.fillStyle = '#00ffff';
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 8;
+                    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                    ctx.shadowBlur = 0;
+                }
+                
+                // Wall texture pattern
                 ctx.fillStyle = '#00cccc';
                 for (let y = wall.y; y < wall.y + wall.height; y += 8) {
                     ctx.fillRect(wall.x, y, wall.width, 2);
                 }
                 
-                // Show wall bounce hint when touching wall
-                if (player.onWall && actions.wallbounces > 0) {
-                    const isThisWall = (player.wallSide === 'left' && Math.abs(player.x + player.size - wall.x) < 15) ||
-                                     (player.wallSide === 'right' && Math.abs(player.x - (wall.x + wall.width)) < 15);
+                // Show wall bounce range when close (but not touching)
+                const playerCenterX = player.x + player.size/2;
+                const playerCenterY = player.y + player.size/2;
+                const distToWall = Math.min(
+                    Math.abs(playerCenterX - wall.x),
+                    Math.abs(playerCenterX - (wall.x + wall.width))
+                );
+                
+                if (distToWall < 40 && actions.wallbounces > 0 && 
+                    playerCenterY >= wall.y - 20 && playerCenterY <= wall.y + wall.height + 20) {
                     
-                    if (isThisWall && 
-                        player.y + player.size > wall.y && 
-                        player.y < wall.y + wall.height) {
-                        
-                        ctx.fillStyle = '#ffffff';
-                        ctx.font = '8px Press Start 2P';
-                        ctx.textAlign = 'center';
-                        
-                        const hintX = wall.x + wall.width/2;
-                        const hintY = player.y - 10;
-                        
-                        ctx.fillText('PRESS SPACE', hintX, hintY);
-                        
-                        // Visual bounce indicator
-                        ctx.fillStyle = '#ffff00';
-                        ctx.shadowColor = '#ffff00';
-                        ctx.shadowBlur = 10;
-                        const bounceDirection = player.wallSide === 'left' ? 1 : -1;
-                        const arrowX = player.x + (bounceDirection * 20);
-                        const arrowY = player.y;
-                        
-                        // Draw bounce arrow
-                        ctx.fillText('↗', arrowX, arrowY);
-                        ctx.shadowBlur = 0;
-                    }
+                    // Show approach hint
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '8px Press Start 2P';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('GET CLOSER TO WALL', wall.x + wall.width/2, wall.y - 30);
                 }
             });
             
