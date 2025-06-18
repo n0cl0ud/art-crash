@@ -225,6 +225,6 @@ For licensing inquiries or commercial use, please contact: [your.email@domain.co
 
 *© 2025 All Rights Reserved*
 
-[⭐ Star this repo](https://github.com/tonusername/art-crash) • [🐦 Share on Twitter](https://twitter.com/intent/tweet?text=Check%20out%20Art%20Crash%20-%20a%20strategic%20puzzle%20platformer!&url=https://github.com/tonusername/art-crash) • [🎮 Play Now](https://tonusername.github.io/art-crash)
+[⭐ Star this repo](https://github.com/tonusername/art-crash) • [🐦 Share on Twitter](https://twitter.com/intent/tweet?text=Check%20out%20Art%20Crash%20-%20a%20strategic%20puzzle%20platformer!&url=https://github.com/tonusername/art-crash) • [🎮 Play Now](https://n0cl0ud.github.io/art-crash)
 
 </div>
